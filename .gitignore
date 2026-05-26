@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Local Home Assistant and editor/runtime files.
+.storage/
+deps/
+home-assistant.log*
+secrets.yaml
+.env
+.agents/
+.codex/
+.git-local/

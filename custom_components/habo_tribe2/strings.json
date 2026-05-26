@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HABO Tribe2 Smart Lock",
+        "description": "Connect to the HABO Tribe2 cloud API.",
+        "data": {
+          "base_url": "Cloud API base URL",
+          "username": "Username",
+          "password": "Password",
+          "pin": "Admin PIN",
+          "device_token": "Device token"
+        }
+      },
+      "lock": {
+        "title": "Choose lock",
+        "data": {
+          "device_id": "Lock"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate HABO Tribe2 Smart Lock",
+        "description": "Update the credentials for this lock.",
+        "data": {
+          "password": "Password",
+          "pin": "Admin PIN",
+          "device_token": "Device token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "no_locks": "No locks were returned by this account",
+      "unexpected_response": "The HABO cloud returned an unexpected response",
+      "unknown_lock": "Selected lock was not found",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This lock is already configured",
+      "reauth_successful": "Reauthentication was successful",
+      "unknown": "Unexpected error"
+    }
+  },
+  "entity": {
+    "lock": {
+      "lock": {
+        "name": "Lock"
+      }
+    },
+    "binary_sensor": {
+      "door": {
+        "name": "Door"
+      },
+      "connected": {
+        "name": "Connected"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "last_seen": {
+        "name": "Last seen"
+      }
+    },
+    "select": {
+      "operating_mode": {
+        "name": "Operating mode",
+        "state": {
+          "normal": "Normal",
+          "privacy": "Privacy",
+          "passage": "Passage"
+        }
+      }
+    }
+  }
+}

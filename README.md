@@ -1,0 +1,79 @@
+# HABO Tribe2 Smart Lock for Home Assistant
+
+Custom Home Assistant integration for the HABO Tribe2 Smart Lock cloud service.
+
+This repository contains a Home Assistant config-flow integration for the HABO
+Tribe2 cloud API.
+
+## Cloud feature coverage
+
+Implemented cloud API coverage:
+
+- Login with email/password/device token: `POST /account/login`
+- Lock discovery: `GET /doorlocks`
+- Lock and unlock commands using SmartBox gateway ID, lock address, and PIN
+- Operating mode changes for Normal, Privacy, and Passage
+- Door open/closed, connectivity, battery estimate, voltage, and last-seen state
+- Diagnostics with password, PIN, token, and username redacted
+
+## Install
+
+Copy `custom_components/habo_tribe2` into your Home Assistant config directory:
+
+```text
+config/
+  custom_components/
+    habo_tribe2/
+```
+
+Restart Home Assistant, then add **HABO Tribe2 Smart Lock** from
+**Settings > Devices & services > Add integration**.
+
+The setup flow asks for:
+
+- Email address
+- Password
+- Admin PIN used by the app for lock/unlock commands
+- Optional device token
+
+After login, the integration fetches `/doorlocks` and lets you choose the lock
+to add. Add the integration once per lock if the account has multiple locks.
+
+## Implemented cloud calls
+
+```text
+POST /account/login
+GET /doorlocks
+POST /doorlocks/{gateway_id}/{lock_addr}/lock?pin={pin}
+POST /doorlocks/{gateway_id}/{lock_addr}/unlock?pin={pin}&timeout=5000
+POST /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65317
+```
+
+Operating mode payloads for attribute `65317`:
+
+```text
+normal:  "AA=="
+privacy: "Ag=="
+passage: "BA=="
+```
+
+
+## Production test checklist
+
+Start with a lock you can physically access.
+
+1. Install the integration and restart Home Assistant.
+2. Add the integration from **Settings > Devices & services**.
+3. Verify the lock, door, connected, battery, and operating mode entities appear.
+4. Confirm the mobile app and Home Assistant show the same lock/door state.
+5. Test refresh-only behavior first by opening/closing the door and waiting for polling.
+6. Test `unlock`, then verify the physical door and mobile app state.
+7. Test `lock`, then verify the physical door and mobile app state.
+8. Test Normal/Privacy/Passage mode changes only when someone is near the lock.
+9. Download diagnostics if behavior differs; secrets should be redacted.
+
+Known production-test limits:
+
+- State is cloud polling, not MQTT push, so updates can lag by up to the polling interval.
+- Battery percentage is estimated from the `vrm` voltage-like field.
+- HABO sometimes returns code `305` / `Busy`; Home Assistant reports this as a clean service error.

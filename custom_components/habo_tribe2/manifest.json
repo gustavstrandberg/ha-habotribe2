@@ -1,0 +1,12 @@
+{
+  "domain": "habo_tribe2",
+  "name": "HABO Tribe2 Smart Lock",
+  "after_dependencies": [],
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/custom-components/habo_tribe2",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/custom-components/habo_tribe2/issues",
+  "requirements": ["httpx>=0.27.0"],
+  "version": "0.2.0"
+}
