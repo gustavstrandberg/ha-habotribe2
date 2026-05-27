@@ -239,6 +239,7 @@ class ApiParsingTest(unittest.TestCase):
                 {
                     "id": 1,
                     "date": "2026-05-27T08:00:00+00:00",
+                    "logOwnerId": "owner-1",
                     "severity": "Info",
                     "type": "MQTT_EVT",
                     "text": "HABO SmartBox. Front Door - Locked",
@@ -283,6 +284,7 @@ class ApiParsingTest(unittest.TestCase):
 
         self.assertEqual(len(lock.events), 1)
         self.assertEqual(lock.events[0].event_code, "EvtOpLock")
+        self.assertEqual(lock.events[0].log_owner_id, "owner-1")
         self.assertEqual(len(lock.smartbox_events), 1)
         self.assertEqual(lock.smartbox_events[0].event_code, "EvtOnlineWifi")
 

@@ -50,6 +50,7 @@ class EventLogEntry:
 
     event_id: int | None = None
     date: str | None = None
+    log_owner_id: str | None = None
     severity: str | None = None
     event_type: str | None = None
     text: str | None = None
@@ -366,6 +367,7 @@ def _parse_event_log_entry(data: dict[str, Any]) -> EventLogEntry:
     return EventLogEntry(
         event_id=_coerce_raw_int(data.get("id")),
         date=_first_str(data, "date"),
+        log_owner_id=_first_str(data, "logOwnerId"),
         severity=_first_str(data, "severity"),
         event_type=_first_str(data, "type") or _first_str(payload, "eventType"),
         text=text,

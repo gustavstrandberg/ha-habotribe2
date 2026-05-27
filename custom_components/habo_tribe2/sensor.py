@@ -392,6 +392,7 @@ def _event_attributes(events: list[EventLogEntry] | None) -> list[dict[str, Any]
         {
             "id": event.event_id,
             "date": event.date,
+            "log_owner_id": event.log_owner_id,
             "severity": event.severity,
             "type": event.event_type,
             "text": event.text,
