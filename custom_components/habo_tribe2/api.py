@@ -395,7 +395,9 @@ def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
         name=_first_str(data, "name") or _first_str(payload, "name"),
         model=_first_str(payload, "model") or _first_str(data, "model"),
         serial_number=_first_str(data, "serialNumber") or _first_str(payload, "serialNumber"),
-        firmware_version=_first_present(payload, "firmwareVersion", "swBuild", "firmware"),
+        firmware_version=_firmware_version_string(
+            _first_present(payload, "firmwareVersion", "swBuild", "firmware")
+        ),
         state=_first_str(payload, "state") or _first_str(data, "state"),
         mode=_first_present(payload, "mode", "networkMode", "opMode"),
         address=_first_present(payload, "address", "ipAddress", "ip", "addr"),
@@ -611,6 +613,21 @@ def _hex_string(value: Any) -> str | None:
     if raw is None:
         return None
     return f"{raw:04X}"
+
+
+def _firmware_version_string(value: Any) -> str | int | None:
+    if isinstance(value, str):
+        return value
+
+    raw = _coerce_raw_int(value)
+    if raw is None:
+        return None
+
+    major = (raw >> 26) & 0x3F
+    minor = (raw >> 20) & 0x0F
+    patch = (raw >> 14) & 0x3F
+    build = raw & 0x3FFF
+    return f"{major}.{minor}.{patch}.{build}"
 
 
 def _latest_child_update(value: Any) -> str | None:

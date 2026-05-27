@@ -155,8 +155,21 @@ class ApiParsingTest(unittest.TestCase):
 
         self.assertEqual(lock.smartbox.name, "HABO SmartBox")
         self.assertEqual(lock.smartbox.model, "HABO SmartBox V1")
+        self.assertEqual(lock.smartbox.firmware_version, "1.1.0.2326")
         self.assertEqual(lock.smartbox.zigbee_channel, 14)
         self.assertEqual(lock.smartbox.zigbee_pan_id, "9F51")
+
+    def test_gateway_firmware_version_is_decoded(self):
+        gateway = self.api._parse_gateway_state(
+            {
+                "id": "gateway-1",
+                "mqttPayload": {
+                    "firmwareVersion": 70271976,
+                },
+            }
+        )
+
+        self.assertEqual(gateway.firmware_version, "1.3.1.1000")
 
     def test_gateway_pan_id_is_formatted_as_hex(self):
         gateway = self.api._parse_gateway_state(
