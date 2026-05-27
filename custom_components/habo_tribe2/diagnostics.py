@@ -15,6 +15,7 @@ TO_REDACT = {
     CONF_USERNAME,
     "device_token",
     "pin",
+    "admin_pin",
 }
 
 
@@ -52,6 +53,7 @@ async def async_get_config_entry_diagnostics(
             "open_time": data.open_time,
             "unlock_events": data.unlock_events,
             "voltage_mv": data.voltage_mv,
+            "has_admin_pin": data.admin_pin is not None,
             "smartbox": asdict(data.smartbox) if data.smartbox else None,
         },
     }

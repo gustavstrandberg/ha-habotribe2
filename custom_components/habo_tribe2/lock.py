@@ -84,6 +84,7 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
             await self.coordinator.client.async_lock(
                 self.coordinator.gateway_id,
                 self.coordinator.lock_addr,
+                pin=self._admin_pin(),
             )
         except LockBusyError as err:
             raise HomeAssistantError("HABO lock is busy; try again shortly") from err
@@ -102,6 +103,7 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
             await self.coordinator.client.async_unlock(
                 self.coordinator.gateway_id,
                 self.coordinator.lock_addr,
+                pin=self._admin_pin(),
             )
         except LockBusyError as err:
             raise HomeAssistantError("HABO lock is busy; try again shortly") from err
@@ -112,3 +114,9 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
         finally:
             with suppress(Exception):
                 await self.coordinator.async_request_refresh()
+
+    def _admin_pin(self) -> str:
+        pin = self.coordinator.data.admin_pin
+        if not pin:
+            raise HomeAssistantError("HABO Admin PIN was not returned by the cloud")
+        return pin

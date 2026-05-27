@@ -113,6 +113,7 @@ class LockState:
     smartbox: GatewayState | None = None
     events: list[EventLogEntry] | None = None
     smartbox_events: list[EventLogEntry] | None = None
+    admin_pin: str | None = None
 
 
 class HaboTribe2Client:
@@ -195,12 +196,19 @@ class HaboTribe2Client:
                 return lock
         raise ApiSchemaError(f"Lock {device_id} was not returned by the cloud")
 
-    async def async_lock(self, gateway_id: str, lock_addr: int) -> None:
+    async def async_lock(
+        self,
+        gateway_id: str,
+        lock_addr: int,
+        pin: str | None = None,
+    ) -> None:
         """Send a lock command."""
 
+        kwargs = {"params": {"pin": pin}} if pin else {}
         data = await self._request(
             "POST",
             f"/doorlocks/{gateway_id}/{lock_addr}/lock",
+            **kwargs,
         )
         _raise_if_command_failed(data)
 
@@ -209,13 +217,18 @@ class HaboTribe2Client:
         gateway_id: str,
         lock_addr: int,
         timeout: int = 5000,
+        *,
+        pin: str | None = None,
     ) -> None:
         """Send an unlock command."""
 
+        params: dict[str, int | str] = {"timeout": timeout}
+        if pin:
+            params["pin"] = pin
         data = await self._request(
             "POST",
             f"/doorlocks/{gateway_id}/{lock_addr}/unlock",
-            params={"timeout": timeout},
+            params=params,
         )
         _raise_if_command_failed(data)
 
@@ -539,6 +552,7 @@ def _parse_lock_state(data: dict[str, Any]) -> LockState:
             _first_present(info, "unlockEvents", "unlockCount", "openCount")
         ),
         voltage_mv=voltage_mv,
+        admin_pin=_admin_pin_from_openings(data.get("openings")),
     )
 
 
@@ -568,6 +582,20 @@ def _first_present(data: dict[str, Any], *keys: str) -> Any:
 def _first_str(data: dict[str, Any], *keys: str) -> str | None:
     value = _first_present(data, *keys)
     return value if isinstance(value, str) and value else None
+
+
+def _admin_pin_from_openings(value: Any) -> str | None:
+    if not isinstance(value, list):
+        return None
+
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        if _coerce_raw_int(item.get("doorlockUserId")) != 0:
+            continue
+        return _first_str(item, "pin")
+
+    return None
 
 
 def _coerce_bool(value: Any) -> bool | None:

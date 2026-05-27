@@ -210,7 +210,31 @@ class ApiParsingTest(unittest.TestCase):
 
         self.assertEqual(lock.last_seen, "2026-05-27T09:00:00")
 
-    def test_lock_and_unlock_do_not_send_pin(self):
+    def test_admin_pin_is_read_from_admin_opening(self):
+        lock = self.api._parse_lock_state(
+            {
+                "id": 1,
+                "gatewayId": "gateway-1",
+                "name": "Front Door",
+                "info": {
+                    "addr": 123,
+                    "lockState": 1,
+                    "doorState": 0,
+                    "boltState": 1,
+                    "opMode": 0,
+                    "schMode": 0,
+                    "vrm": 6556,
+                },
+                "openings": [
+                    {"doorlockUserId": 42, "pin": "111111"},
+                    {"doorlockUserId": 0, "pin": "123456"},
+                ],
+            }
+        )
+
+        self.assertEqual(lock.admin_pin, "123456")
+
+    def test_lock_and_unlock_send_admin_pin(self):
         fake_client = FakeHttpClient()
         client = self.api.HaboTribe2Client(
             base_url="https://example.test/api/v1",
@@ -220,15 +244,14 @@ class ApiParsingTest(unittest.TestCase):
         )
         client._token = "token"
 
-        asyncio.run(client.async_lock("gateway-1", 123))
-        asyncio.run(client.async_unlock("gateway-1", 123))
+        asyncio.run(client.async_lock("gateway-1", 123, pin="123456"))
+        asyncio.run(client.async_unlock("gateway-1", 123, pin="123456"))
 
         lock_request = fake_client.requests[0]
         unlock_request = fake_client.requests[1]
 
-        self.assertNotIn("pin", lock_request["kwargs"].get("params", {}))
-        self.assertNotIn("pin", unlock_request["kwargs"].get("params", {}))
-        self.assertEqual(unlock_request["kwargs"]["params"], {"timeout": 5000})
+        self.assertEqual(lock_request["kwargs"]["params"], {"pin": "123456"})
+        self.assertEqual(unlock_request["kwargs"]["params"], {"timeout": 5000, "pin": "123456"})
 
     def test_event_logs_are_filtered_for_lock_and_gateway(self):
         lock = self.api._parse_lock_state(
