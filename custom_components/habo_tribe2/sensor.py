@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -18,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import LockState
+from .api import EventLogEntry, LockState
 from .const import DOMAIN
 from .coordinator import HaboTribe2Coordinator
 from .entity import HaboTribe2Entity
@@ -29,6 +30,7 @@ class HaboTribe2SensorDescription(SensorEntityDescription):
     """Description for a HABO Tribe2 sensor."""
 
     value_fn: Callable[[LockState], datetime | int | str | None]
+    attrs_fn: Callable[[LockState], dict[str, Any]] | None = None
     device: str = "lock"
 
 
@@ -132,6 +134,12 @@ SENSOR_DESCRIPTIONS = (
         value_fn=lambda data: _parse_timestamp(data.last_seen),
     ),
     HaboTribe2SensorDescription(
+        key="event_log",
+        translation_key="event_log",
+        value_fn=lambda data: _latest_event_text(data.events),
+        attrs_fn=lambda data: {"events": _event_attributes(data.events)},
+    ),
+    HaboTribe2SensorDescription(
         key="smartbox_name",
         translation_key="smartbox_name",
         device="smartbox",
@@ -210,6 +218,13 @@ SENSOR_DESCRIPTIONS = (
         device="smartbox",
         value_fn=lambda data: _smartbox_value(data, "zigbee_pan_id"),
     ),
+    HaboTribe2SensorDescription(
+        key="smartbox_event_log",
+        translation_key="smartbox_event_log",
+        device="smartbox",
+        value_fn=lambda data: _latest_event_text(data.smartbox_events),
+        attrs_fn=lambda data: {"events": _event_attributes(data.smartbox_events)},
+    ),
 )
 
 
@@ -256,6 +271,14 @@ class HaboTribe2Sensor(HaboTribe2Entity, SensorEntity):
         return self.entity_description.value_fn(self.coordinator.data)
 
     @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return sensor attributes."""
+
+        if self.entity_description.attrs_fn is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data)
+
+    @property
     def available(self) -> bool:
         """Return if entity is available."""
 
@@ -291,3 +314,30 @@ def _smartbox_value(data: LockState, attr: str) -> int | str | None:
     if isinstance(value, bool):
         return str(value)
     return value
+
+
+def _latest_event_text(events: list[EventLogEntry] | None) -> str | None:
+    if not events:
+        return None
+    event = events[0]
+    return event.event_title or event.text or event.event_code
+
+
+def _event_attributes(events: list[EventLogEntry] | None) -> list[dict[str, Any]]:
+    if not events:
+        return []
+    return [
+        {
+            "id": event.event_id,
+            "date": event.date,
+            "severity": event.severity,
+            "type": event.event_type,
+            "text": event.text,
+            "event_code": event.event_code,
+            "event_source": event.event_source,
+            "event_title": event.event_title,
+            "timestamp": event.timestamp,
+            "user_id": event.user_id,
+        }
+        for event in events[:200]
+    ]

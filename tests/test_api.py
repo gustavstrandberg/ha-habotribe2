@@ -177,6 +177,75 @@ class ApiParsingTest(unittest.TestCase):
         self.assertNotIn("pin", unlock_request["kwargs"].get("params", {}))
         self.assertEqual(unlock_request["kwargs"]["params"], {"timeout": 5000})
 
+    def test_event_logs_are_filtered_for_lock_and_gateway(self):
+        lock = self.api._parse_lock_state(
+            {
+                "id": 1,
+                "gatewayId": "gateway-1",
+                "name": "Front Door",
+                "info": {
+                    "addr": 123,
+                    "lockState": 1,
+                    "doorState": 0,
+                    "boltState": 1,
+                    "opMode": 0,
+                    "schMode": 0,
+                    "vrm": 4968,
+                },
+            }
+        )
+        events = self.api._parse_event_logs(
+            [
+                {
+                    "id": 1,
+                    "date": "2026-05-27T08:00:00+00:00",
+                    "severity": "Info",
+                    "type": "MQTT_EVT",
+                    "text": "HABO SmartBox. Front Door - Locked",
+                    "payload": {
+                        "gateway": "gateway-1",
+                        "device": 123,
+                        "eventCode": "EvtOpLock",
+                        "eventTitle": "Front Door - Locked",
+                        "eventType": "Doorlock",
+                    },
+                },
+                {
+                    "id": 2,
+                    "date": "2026-05-27T07:59:00+00:00",
+                    "severity": "Info",
+                    "type": "MQTT_EVT",
+                    "text": "HABO SmartBox. The SmartBox is online",
+                    "payload": {
+                        "gateway": "gateway-1",
+                        "device": None,
+                        "eventCode": "EvtOnlineWifi",
+                        "eventTitle": "The SmartBox is online",
+                        "eventType": "Gateway",
+                    },
+                },
+                {
+                    "id": 3,
+                    "date": "2026-05-27T07:58:00+00:00",
+                    "severity": "Info",
+                    "type": "MQTT_EVT",
+                    "text": "Other lock",
+                    "payload": {
+                        "gateway": "gateway-1",
+                        "device": 999,
+                        "eventCode": "EvtOpUnlock",
+                    },
+                },
+            ]
+        )
+
+        self.api._with_events(lock, events)
+
+        self.assertEqual(len(lock.events), 1)
+        self.assertEqual(lock.events[0].event_code, "EvtOpLock")
+        self.assertEqual(len(lock.smartbox_events), 1)
+        self.assertEqual(lock.smartbox_events[0].event_code, "EvtOnlineWifi")
+
 
 if __name__ == "__main__":
     unittest.main()

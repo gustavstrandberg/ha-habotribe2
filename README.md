@@ -18,6 +18,7 @@ Implemented:
   TX power, runtime counters, and event counters when the cloud provides them
 - SmartBox sensors for model, serial number, firmware, state, network details,
   DNS, ZigBee channel, and ZigBee PanID when the cloud provides them
+- Recent event log sensors for each lock and SmartBox
 - Diagnostics with password, PIN, token, and username redacted
 
 Public Habo material describes the Smartbox as the bridge between the Tribe2
@@ -50,6 +51,7 @@ to add. Add the integration once per lock if the account has multiple locks.
 ```text
 POST /account/login
 GET /doorlocks
+GET /logs/?take=200
 POST /doorlocks/{gateway_id}/{lock_addr}/lock
 POST /doorlocks/{gateway_id}/{lock_addr}/unlock?timeout=5000
 POST /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65317

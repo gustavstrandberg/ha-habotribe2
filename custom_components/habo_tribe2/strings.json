@@ -104,6 +104,9 @@
       "last_seen": {
         "name": "Last seen"
       },
+      "event_log": {
+        "name": "Event log"
+      },
       "smartbox_name": {
         "name": "Name"
       },
@@ -142,6 +145,9 @@
       },
       "smartbox_zigbee_pan_id": {
         "name": "ZigBee PanID"
+      },
+      "smartbox_event_log": {
+        "name": "Event log"
       }
     },
     "select": {

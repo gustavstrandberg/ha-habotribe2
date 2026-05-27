@@ -45,6 +45,24 @@ class ApiSchemaError(HaboTribe2Error):
 
 
 @dataclass(slots=True)
+class EventLogEntry:
+    """Normalized event log entry."""
+
+    event_id: int | None = None
+    date: str | None = None
+    severity: str | None = None
+    event_type: str | None = None
+    text: str | None = None
+    gateway_id: str | None = None
+    lock_addr: int | None = None
+    event_code: str | None = None
+    event_source: str | None = None
+    event_title: str | None = None
+    user_id: int | None = None
+    timestamp: str | None = None
+
+
+@dataclass(slots=True)
 class GatewayState:
     """Normalized state for one HABO SmartBox."""
 
@@ -91,6 +109,8 @@ class LockState:
     unlock_events: int | None = None
     voltage_mv: int | None = None
     smartbox: GatewayState | None = None
+    events: list[EventLogEntry] | None = None
+    smartbox_events: list[EventLogEntry] | None = None
 
 
 class HaboTribe2Client:
@@ -143,13 +163,27 @@ class HaboTribe2Client:
         except HaboTribe2Error as err:
             _LOGGER.debug("Unable to fetch HABO SmartBox list: %s", err)
             gateways = {}
-        return [_with_gateway(lock, gateways.get(lock.gateway_id)) for lock in locks]
+        try:
+            events = await self.async_get_logs()
+        except HaboTribe2Error as err:
+            _LOGGER.debug("Unable to fetch HABO event logs: %s", err)
+            events = []
+        return [
+            _with_events(_with_gateway(lock, gateways.get(lock.gateway_id)), events)
+            for lock in locks
+        ]
 
     async def async_get_gateways(self) -> dict[str, GatewayState]:
         """Fetch all SmartBoxes visible to the account."""
 
         data = await self._request("GET", "/gw/list")
         return _parse_gateway_map(data)
+
+    async def async_get_logs(self, take: int = 200) -> list[EventLogEntry]:
+        """Fetch recent event logs."""
+
+        data = await self._request("GET", "/logs/", params={"take": take})
+        return _parse_event_logs(data)
 
     async def async_get_lock(self, device_id: str) -> LockState:
         """Fetch and normalize a single lock state."""
@@ -312,6 +346,38 @@ def _parse_gateway_map(data: Any) -> dict[str, GatewayState]:
     return gateways
 
 
+def _parse_event_logs(data: Any) -> list[EventLogEntry]:
+    """Parse the /logs response."""
+
+    if not isinstance(data, list):
+        raise ApiSchemaError("Logs response does not contain a log list")
+
+    return [_parse_event_log_entry(item) for item in data if isinstance(item, dict)]
+
+
+def _parse_event_log_entry(data: dict[str, Any]) -> EventLogEntry:
+    payload = data.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+
+    text = _first_str(data, "text")
+    event_title = _first_str(payload, "eventTitle")
+    return EventLogEntry(
+        event_id=_coerce_raw_int(data.get("id")),
+        date=_first_str(data, "date"),
+        severity=_first_str(data, "severity"),
+        event_type=_first_str(data, "type") or _first_str(payload, "eventType"),
+        text=text,
+        gateway_id=_first_str(payload, "gateway"),
+        lock_addr=_coerce_raw_int(payload.get("device")),
+        event_code=_first_str(payload, "eventCode"),
+        event_source=_first_str(payload, "eventSource"),
+        event_title=event_title,
+        user_id=_coerce_raw_int(payload.get("userId")),
+        timestamp=_first_str(payload, "timestamp"),
+    )
+
+
 def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
     payload = data.get("mqttPayload")
     if not isinstance(payload, dict):
@@ -341,6 +407,20 @@ def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
 
 def _with_gateway(lock: LockState, gateway: GatewayState | None) -> LockState:
     lock.smartbox = gateway
+    return lock
+
+
+def _with_events(lock: LockState, events: list[EventLogEntry]) -> LockState:
+    lock.events = [
+        event
+        for event in events
+        if event.gateway_id == lock.gateway_id and event.lock_addr == lock.lock_addr
+    ]
+    lock.smartbox_events = [
+        event
+        for event in events
+        if event.gateway_id == lock.gateway_id and event.lock_addr is None
+    ]
     return lock
 
 
