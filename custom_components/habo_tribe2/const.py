@@ -12,6 +12,7 @@ CONF_DEVICE_ID = "device_id"
 CONF_GATEWAY_ID = "gateway_id"
 CONF_LOCK_ADDR = "lock_addr"
 CONF_LOCK_NAME = "lock_name"
+CONF_PIN = "pin"
 
 DEFAULT_BASE_URL = "https://api.habotribe.com/api/v1"
 DEFAULT_SCAN_INTERVAL_SECONDS = 60

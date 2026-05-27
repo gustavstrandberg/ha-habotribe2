@@ -8,12 +8,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 
 from .api import HaboTribe2Client
-from .const import CONF_BASE_URL, PLATFORMS
+from .const import CONF_BASE_URL, CONF_PIN, PLATFORMS
 from .coordinator import HaboTribe2Coordinator
 
 type HaboTribe2ConfigEntry = ConfigEntry[HaboTribe2Coordinator]
 
-LEGACY_SECRET_KEYS = {"pin", "device_token"}
+LEGACY_SECRET_KEYS = {CONF_PIN, "device_token"}
 
 
 async def async_migrate_entry(
@@ -28,7 +28,10 @@ async def async_migrate_entry(
             for key, value in entry.data.items()
             if key not in LEGACY_SECRET_KEYS
         }
-        hass.config_entries.async_update_entry(entry, data=data)
+        options = dict(entry.options)
+        if entry.data.get(CONF_PIN) and not options.get(CONF_PIN):
+            options[CONF_PIN] = entry.data[CONF_PIN]
+        hass.config_entries.async_update_entry(entry, data=data, options=options)
     return True
 
 

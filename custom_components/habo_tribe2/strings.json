@@ -38,6 +38,17 @@
       "unknown": "Unexpected error"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HABO Tribe2 Smart Lock options",
+        "description": "Configure optional command settings for this lock.",
+        "data": {
+          "pin": "Command PIN"
+        }
+      }
+    }
+  },
   "entity": {
     "lock": {
       "lock": {
