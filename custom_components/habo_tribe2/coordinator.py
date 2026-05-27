@@ -15,7 +15,6 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_GATEWAY_ID,
     CONF_LOCK_ADDR,
-    CONF_PIN,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
 )
@@ -43,12 +42,6 @@ class HaboTribe2Coordinator(DataUpdateCoordinator[LockState]):
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS),
         )
-
-    @property
-    def pin(self) -> str | None:
-        """Return the optional command PIN configured for this entry."""
-
-        return self.entry.options.get(CONF_PIN) or None
 
     async def _async_update_data(self) -> LockState:
         try:

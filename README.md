@@ -45,10 +45,6 @@ The setup flow asks for:
 After login, the integration fetches `/doorlocks` and lets you choose the lock
 to add. Add the integration once per lock if the account has multiple locks.
 
-Optional per-lock settings are available from the integration options:
-
-- Command PIN, used only by this integration when sending lock/unlock commands
-
 ## Implemented cloud calls
 
 ```text
@@ -58,9 +54,6 @@ POST /doorlocks/{gateway_id}/{lock_addr}/lock
 POST /doorlocks/{gateway_id}/{lock_addr}/unlock?timeout=5000
 POST /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65317
 ```
-
-If a command PIN is configured in options, lock and unlock commands include it
-as `pin={pin}`.
 
 Operating mode payloads for attribute `65317`:
 

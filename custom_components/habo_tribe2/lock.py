@@ -84,7 +84,6 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
             await self.coordinator.client.async_lock(
                 self.coordinator.gateway_id,
                 self.coordinator.lock_addr,
-                self.coordinator.pin,
             )
         except LockBusyError as err:
             raise HomeAssistantError("HABO lock is busy; try again shortly") from err
@@ -103,7 +102,6 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
             await self.coordinator.client.async_unlock(
                 self.coordinator.gateway_id,
                 self.coordinator.lock_addr,
-                self.coordinator.pin,
             )
         except LockBusyError as err:
             raise HomeAssistantError("HABO lock is busy; try again shortly") from err
