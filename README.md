@@ -86,3 +86,7 @@ Known production-test limits:
 - Battery percentage is estimated from the `vrm` voltage-like field. Values
   outside a plausible lock battery range are ignored instead of shown as mV.
 - HABO sometimes returns code `305` / `Busy`; Home Assistant reports this as a clean service error.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
