@@ -57,14 +57,95 @@
       }
     },
     "sensor": {
-      "battery": {
-        "name": "Battery"
+      "smartbox": {
+        "name": "SmartBox"
       },
-      "voltage": {
-        "name": "Voltage"
+      "model": {
+        "name": "Model"
+      },
+      "serial_number": {
+        "name": "Serial number"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      },
+      "lock_state": {
+        "name": "Lock state"
+      },
+      "door_state": {
+        "name": "Door state"
+      },
+      "bolt_state": {
+        "name": "Bolt state"
+      },
+      "operating_mode_sensor": {
+        "name": "Operating mode"
+      },
+      "scheduled_mode": {
+        "name": "Scheduled mode"
+      },
+      "battery_level": {
+        "name": "Battery level"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      },
+      "rssi": {
+        "name": "RSSI"
+      },
+      "tx_power": {
+        "name": "TX Power"
+      },
+      "total_run_time": {
+        "name": "Total run time"
+      },
+      "open_time": {
+        "name": "Open time"
+      },
+      "unlock_events": {
+        "name": "Unlock events"
       },
       "last_seen": {
         "name": "Last seen"
+      },
+      "smartbox_name": {
+        "name": "Name"
+      },
+      "smartbox_model": {
+        "name": "Model"
+      },
+      "smartbox_serial_number": {
+        "name": "Serial number"
+      },
+      "smartbox_firmware_version": {
+        "name": "Firmware version"
+      },
+      "smartbox_state": {
+        "name": "State"
+      },
+      "smartbox_mode": {
+        "name": "Mode"
+      },
+      "smartbox_address": {
+        "name": "Address"
+      },
+      "smartbox_subnet": {
+        "name": "Subnet"
+      },
+      "smartbox_gateway": {
+        "name": "Gateway"
+      },
+      "smartbox_dns_main": {
+        "name": "DNS (Main)"
+      },
+      "smartbox_dns_backup": {
+        "name": "DNS (Backup)"
+      },
+      "smartbox_zigbee_channel": {
+        "name": "ZigBee Channel"
+      },
+      "smartbox_zigbee_pan_id": {
+        "name": "ZigBee PanID"
       }
     },
     "select": {

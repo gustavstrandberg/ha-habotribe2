@@ -45,6 +45,26 @@ class ApiSchemaError(HaboTribe2Error):
 
 
 @dataclass(slots=True)
+class GatewayState:
+    """Normalized state for one HABO SmartBox."""
+
+    gateway_id: str
+    name: str | None = None
+    model: str | None = None
+    serial_number: str | None = None
+    firmware_version: str | int | None = None
+    state: str | None = None
+    mode: str | int | None = None
+    address: str | int | None = None
+    subnet: str | None = None
+    gateway: str | None = None
+    dns_main: str | None = None
+    dns_backup: str | None = None
+    zigbee_channel: int | None = None
+    zigbee_pan_id: int | None = None
+
+
+@dataclass(slots=True)
 class LockState:
     """Normalized state for one HABO Tribe2 lock."""
 
@@ -53,12 +73,24 @@ class LockState:
     lock_addr: int
     name: str | None
     is_locked: bool | None
+    model: str | None = None
+    serial_number: str | None = None
+    firmware_version: str | None = None
     battery_level: int | None = None
     connected: bool | None = None
     door_open: bool | None = None
+    door_state: str | None = None
+    bolt_state: str | None = None
     last_seen: str | None = None
     operating_mode: str | None = None
+    scheduled_mode: str | None = None
+    rssi: int | None = None
+    tx_power: int | None = None
+    total_run_time: int | None = None
+    open_time: int | None = None
+    unlock_events: int | None = None
     voltage_mv: int | None = None
+    smartbox: GatewayState | None = None
 
 
 class HaboTribe2Client:
@@ -108,7 +140,19 @@ class HaboTribe2Client:
         """Fetch all locks visible to the account."""
 
         data = await self._request("GET", "/doorlocks")
-        return _parse_lock_list(data)
+        locks = _parse_lock_list(data)
+        try:
+            gateways = await self.async_get_gateways()
+        except HaboTribe2Error as err:
+            _LOGGER.debug("Unable to fetch HABO SmartBox list: %s", err)
+            gateways = {}
+        return [_with_gateway(lock, gateways.get(lock.gateway_id)) for lock in locks]
+
+    async def async_get_gateways(self) -> dict[str, GatewayState]:
+        """Fetch all SmartBoxes visible to the account."""
+
+        data = await self._request("GET", "/gw/list")
+        return _parse_gateway_map(data)
 
     async def async_get_lock(self, device_id: str) -> LockState:
         """Fetch and normalize a single lock state."""
@@ -256,6 +300,55 @@ def _parse_lock_list(data: Any) -> list[LockState]:
     return [_parse_lock_state(lock) for lock in raw_locks if isinstance(lock, dict)]
 
 
+def _parse_gateway_map(data: Any) -> dict[str, GatewayState]:
+    """Parse the /gw/list response."""
+
+    if not isinstance(data, list):
+        raise ApiSchemaError("Gateway response does not contain a gateway list")
+
+    gateways: dict[str, GatewayState] = {}
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        gateway_id = item.get("id")
+        if not isinstance(gateway_id, str):
+            continue
+        gateways[gateway_id] = _parse_gateway_state(item)
+    return gateways
+
+
+def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
+    payload = data.get("mqttPayload")
+    if not isinstance(payload, dict):
+        payload = {}
+
+    gateway_id = data.get("id") or payload.get("id")
+    if not isinstance(gateway_id, str):
+        raise ApiSchemaError("Gateway identifiers are missing")
+
+    return GatewayState(
+        gateway_id=gateway_id,
+        name=_first_str(data, "name") or _first_str(payload, "name"),
+        model=_first_str(payload, "model") or _first_str(data, "model"),
+        serial_number=_first_str(data, "serialNumber") or _first_str(payload, "serialNumber"),
+        firmware_version=_first_present(payload, "firmwareVersion", "swBuild", "firmware"),
+        state=_first_str(payload, "state") or _first_str(data, "state"),
+        mode=_first_present(payload, "mode", "networkMode", "opMode"),
+        address=_first_present(payload, "address", "ipAddress", "ip", "addr"),
+        subnet=_first_str(payload, "subnet", "subnetMask", "netmask"),
+        gateway=_first_str(payload, "gateway", "defaultGateway", "router"),
+        dns_main=_first_str(payload, "dnsMain", "dns1", "primaryDns"),
+        dns_backup=_first_str(payload, "dnsBackup", "dns2", "secondaryDns"),
+        zigbee_channel=_coerce_raw_int(payload.get("channel")),
+        zigbee_pan_id=_coerce_raw_int(payload.get("panID")),
+    )
+
+
+def _with_gateway(lock: LockState, gateway: GatewayState | None) -> LockState:
+    lock.smartbox = gateway
+    return lock
+
+
 def _raise_if_command_failed(data: Any) -> None:
     """Raise a typed exception when the API returns an error object."""
 
@@ -333,18 +426,33 @@ def _parse_lock_state(data: dict[str, Any]) -> LockState:
 
     lock_state = _coerce_locked(info.get("lockState"))
     operating_mode = _operating_mode_name(_coerce_int(info.get("opMode")))
-    voltage_mv = _coerce_raw_int(info.get("vrm"))
+    voltage_mv = _coerce_voltage_mv(info.get("vrm"))
     return LockState(
         device_id=str(device_id),
         gateway_id=gateway_id,
         lock_addr=lock_addr,
         name=_first_str(data, "name") or _first_str(info, "name"),
         is_locked=lock_state,
+        model=_first_str(info, "model"),
+        serial_number=_first_str(info, "serialNumber"),
+        firmware_version=_first_str(info, "swBuild", "firmwareVersion"),
         battery_level=_battery_percent_from_voltage(voltage_mv),
         connected=_coerce_bool(info.get("connected")),
         door_open=_coerce_bool(info.get("doorState")),
+        door_state=_door_state_name(_coerce_int(info.get("doorState"))),
+        bolt_state=_bolt_state_name(_coerce_int(info.get("boltState"))),
         last_seen=_first_str(data, "mqttLastUpdate") or _first_str(data, "lastUpdate"),
         operating_mode=operating_mode,
+        scheduled_mode=_scheduled_mode_name(_coerce_int(info.get("schMode"))),
+        rssi=_coerce_raw_int(info.get("rssi")),
+        tx_power=_coerce_raw_int(info.get("txPower")),
+        total_run_time=_coerce_raw_int(
+            _first_present(info, "totalRunTime", "totalRuntime", "runTime")
+        ),
+        open_time=_coerce_raw_int(_first_present(info, "openTime", "openings")),
+        unlock_events=_coerce_raw_int(
+            _first_present(info, "unlockEvents", "unlockCount", "openCount")
+        ),
         voltage_mv=voltage_mv,
     )
 
@@ -433,6 +541,43 @@ def _operating_mode_name(value: int | None) -> str | None:
         2: "privacy",
         4: "passage",
     }.get(value, str(value))
+
+
+def _door_state_name(value: int | None) -> str | None:
+    if value is None:
+        return None
+    return {
+        0: "closed",
+        1: "open",
+    }.get(value, str(value))
+
+
+def _bolt_state_name(value: int | None) -> str | None:
+    if value is None:
+        return None
+    return {
+        0: "unlocked",
+        1: "locked",
+    }.get(value, str(value))
+
+
+def _scheduled_mode_name(value: int | None) -> str | None:
+    if value is None:
+        return None
+    return {
+        0: "off",
+        1: "on",
+    }.get(value, str(value))
+
+
+def _coerce_voltage_mv(value: Any) -> int | None:
+    voltage = _coerce_raw_int(value)
+    if voltage is None:
+        return None
+    if 3000 <= voltage <= 8000:
+        return voltage
+    _LOGGER.debug("Ignoring implausible HABO battery voltage value: %s", voltage)
+    return None
 
 
 def _battery_percent_from_voltage(value: int | None) -> int | None:

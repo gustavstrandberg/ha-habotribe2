@@ -14,6 +14,10 @@ Implemented:
 - Lock and unlock commands using SmartBox gateway ID, lock address, and PIN
 - Operating mode changes for Normal, Privacy, and Passage
 - Door open/closed, connectivity, battery estimate, voltage, and last-seen state
+- Additional lock detail sensors for model, serial number, firmware, states, RSSI,
+  TX power, runtime counters, and event counters when the cloud provides them
+- SmartBox sensors for model, serial number, firmware, state, network details,
+  DNS, ZigBee channel, and ZigBee PanID when the cloud provides them
 - Diagnostics with password, PIN, token, and username redacted
 
 Public Habo material describes the Smartbox as the bridge between the Tribe2
@@ -79,5 +83,6 @@ Start with a lock you can physically access.
 Known production-test limits:
 
 - State is cloud polling, not MQTT push, so updates can lag by up to the polling interval.
-- Battery percentage is estimated from the `vrm` voltage-like field.
+- Battery percentage is estimated from the `vrm` voltage-like field. Values
+  outside a plausible lock battery range are ignored instead of shown as mV.
 - HABO sometimes returns code `305` / `Busy`; Home Assistant reports this as a clean service error.

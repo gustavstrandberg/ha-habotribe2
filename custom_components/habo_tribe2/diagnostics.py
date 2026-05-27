@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -37,10 +38,22 @@ async def async_get_config_entry_diagnostics(
             "lock_addr": data.lock_addr,
             "name": data.name,
             "is_locked": data.is_locked,
+            "model": data.model,
+            "serial_number": data.serial_number,
+            "firmware_version": data.firmware_version,
             "battery_level": data.battery_level,
             "connected": data.connected,
             "door_open": data.door_open,
+            "door_state": data.door_state,
+            "bolt_state": data.bolt_state,
             "operating_mode": data.operating_mode,
+            "scheduled_mode": data.scheduled_mode,
+            "rssi": data.rssi,
+            "tx_power": data.tx_power,
+            "total_run_time": data.total_run_time,
+            "open_time": data.open_time,
+            "unlock_events": data.unlock_events,
             "voltage_mv": data.voltage_mv,
+            "smartbox": asdict(data.smartbox) if data.smartbox else None,
         },
     }
