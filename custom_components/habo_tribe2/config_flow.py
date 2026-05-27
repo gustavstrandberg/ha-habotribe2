@@ -21,11 +21,9 @@ from .api import (
 from .const import (
     CONF_BASE_URL,
     CONF_DEVICE_ID,
-    CONF_DEVICE_TOKEN,
     CONF_GATEWAY_ID,
     CONF_LOCK_ADDR,
     CONF_LOCK_NAME,
-    CONF_PIN,
     DEFAULT_BASE_URL,
     DOMAIN,
 )
@@ -52,7 +50,6 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 base_url=user_input[CONF_BASE_URL],
                 username=user_input[CONF_USERNAME],
                 password=user_input[CONF_PASSWORD],
-                device_token=user_input.get(CONF_DEVICE_TOKEN),
             )
             try:
                 await client.async_login()
@@ -78,8 +75,6 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_PASSWORD): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                     ),
-                    vol.Required(CONF_PIN): str,
-                    vol.Optional(CONF_DEVICE_TOKEN, default=""): str,
                 }
             ),
             errors=errors,
@@ -106,12 +101,15 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if self._reauth_entry is None:
                 return self.async_abort(reason="unknown")
-            data = {**self._reauth_entry.data, **user_input}
+            data = {
+                key: value
+                for key, value in {**self._reauth_entry.data, **user_input}.items()
+                if key not in {"pin", "device_token"}
+            }
             client = HaboTribe2Client(
                 base_url=data[CONF_BASE_URL],
                 username=data[CONF_USERNAME],
                 password=data[CONF_PASSWORD],
-                device_token=data.get(CONF_DEVICE_TOKEN),
             )
             try:
                 await client.async_login()
@@ -141,18 +139,6 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             type=selector.TextSelectorType.PASSWORD
                         )
                     ),
-                    vol.Required(
-                        CONF_PIN,
-                        default=self._reauth_entry.data[CONF_PIN] if self._reauth_entry else "",
-                    ): str,
-                    vol.Optional(
-                        CONF_DEVICE_TOKEN,
-                        default=(
-                            self._reauth_entry.data.get(CONF_DEVICE_TOKEN, "")
-                            if self._reauth_entry
-                            else ""
-                        ),
-                    ): str,
                 }
             ),
             errors=errors,

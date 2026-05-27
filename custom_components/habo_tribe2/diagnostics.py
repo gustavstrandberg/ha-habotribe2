@@ -10,13 +10,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_DEVICE_TOKEN, CONF_PIN
-
 TO_REDACT = {
     CONF_PASSWORD,
-    CONF_PIN,
-    CONF_DEVICE_TOKEN,
     CONF_USERNAME,
+    "device_token",
+    "pin",
 }
 
 

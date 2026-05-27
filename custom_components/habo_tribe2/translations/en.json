@@ -7,9 +7,7 @@
         "data": {
           "base_url": "Cloud API base URL",
           "username": "Username",
-          "password": "Password",
-          "pin": "Admin PIN",
-          "device_token": "Device token"
+          "password": "Password"
         }
       },
       "lock": {
@@ -22,9 +20,7 @@
         "title": "Reauthenticate HABO Tribe2 Smart Lock",
         "description": "Update the credentials for this lock.",
         "data": {
-          "password": "Password",
-          "pin": "Admin PIN",
-          "device_token": "Device token"
+          "password": "Password"
         }
       }
     },

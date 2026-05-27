@@ -15,7 +15,6 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_GATEWAY_ID,
     CONF_LOCK_ADDR,
-    CONF_PIN,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
 )
@@ -37,7 +36,6 @@ class HaboTribe2Coordinator(DataUpdateCoordinator[LockState]):
         self.device_id = entry.data[CONF_DEVICE_ID]
         self.gateway_id = entry.data[CONF_GATEWAY_ID]
         self.lock_addr = entry.data[CONF_LOCK_ADDR]
-        self.pin = entry.data[CONF_PIN]
         super().__init__(
             hass,
             _LOGGER,

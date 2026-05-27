@@ -9,9 +9,9 @@ Tribe2 cloud API.
 
 Implemented:
 
-- Login with email/password/device token: `POST /account/login`
+- Login with email/password: `POST /account/login`
 - Lock discovery: `GET /doorlocks`
-- Lock and unlock commands using SmartBox gateway ID, lock address, and PIN
+- Lock and unlock commands using SmartBox gateway ID and lock address
 - Operating mode changes for Normal, Privacy, and Passage
 - Door open/closed, connectivity, battery estimate, voltage, and last-seen state
 - Additional lock detail sensors for model, serial number, firmware, states, RSSI,
@@ -41,8 +41,6 @@ The setup flow asks for:
 
 - Email address
 - Password
-- Admin PIN used by the app for lock/unlock commands
-- Optional device token
 
 After login, the integration fetches `/doorlocks` and lets you choose the lock
 to add. Add the integration once per lock if the account has multiple locks.
@@ -52,8 +50,8 @@ to add. Add the integration once per lock if the account has multiple locks.
 ```text
 POST /account/login
 GET /doorlocks
-POST /doorlocks/{gateway_id}/{lock_addr}/lock?pin={pin}
-POST /doorlocks/{gateway_id}/{lock_addr}/unlock?pin={pin}&timeout=5000
+POST /doorlocks/{gateway_id}/{lock_addr}/lock
+POST /doorlocks/{gateway_id}/{lock_addr}/unlock?timeout=5000
 POST /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65317
 ```
 

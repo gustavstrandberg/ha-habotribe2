@@ -102,13 +102,11 @@ class HaboTribe2Client:
         base_url: str,
         username: str,
         password: str,
-        device_token: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._username = username
         self._password = password
-        self._device_token = device_token or ""
         self._client = client or httpx.AsyncClient(timeout=20)
         self._owns_client = client is None
         self._token: str | None = None
@@ -124,7 +122,6 @@ class HaboTribe2Client:
 
         payload = {
             "email": self._username,
-            "deviceToken": self._device_token,
             "password": self._password,
         }
         data = await self._request("POST", "/account/login", json=payload, authenticate=False)
@@ -162,13 +159,12 @@ class HaboTribe2Client:
                 return lock
         raise ApiSchemaError(f"Lock {device_id} was not returned by the cloud")
 
-    async def async_lock(self, gateway_id: str, lock_addr: int, pin: str) -> None:
+    async def async_lock(self, gateway_id: str, lock_addr: int) -> None:
         """Send a lock command."""
 
         data = await self._request(
             "POST",
             f"/doorlocks/{gateway_id}/{lock_addr}/lock",
-            params={"pin": pin},
         )
         _raise_if_command_failed(data)
 
@@ -176,7 +172,6 @@ class HaboTribe2Client:
         self,
         gateway_id: str,
         lock_addr: int,
-        pin: str,
         timeout: int = 5000,
     ) -> None:
         """Send an unlock command."""
@@ -184,7 +179,7 @@ class HaboTribe2Client:
         data = await self._request(
             "POST",
             f"/doorlocks/{gateway_id}/{lock_addr}/unlock",
-            params={"pin": pin, "timeout": timeout},
+            params={"timeout": timeout},
         )
         _raise_if_command_failed(data)
 
