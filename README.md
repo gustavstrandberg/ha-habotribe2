@@ -5,9 +5,9 @@ Custom Home Assistant integration for the HABO Tribe2 Smart Lock cloud service.
 This repository contains a Home Assistant config-flow integration for the HABO
 Tribe2 cloud API.
 
-## Cloud feature coverage
+## Feature Coverage
 
-Implemented cloud API coverage:
+Implemented:
 
 - Login with email/password/device token: `POST /account/login`
 - Lock discovery: `GET /doorlocks`
@@ -15,6 +15,10 @@ Implemented cloud API coverage:
 - Operating mode changes for Normal, Privacy, and Passage
 - Door open/closed, connectivity, battery estimate, voltage, and last-seen state
 - Diagnostics with password, PIN, token, and username redacted
+
+Public Habo material describes the Smartbox as the bridge between the Tribe2
+lock and cloud service, so the integration stores Smartbox/device identifiers
+for each configured lock.
 
 ## Install
 

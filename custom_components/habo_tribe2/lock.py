@@ -54,7 +54,7 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return lock attributes useful while reverse engineering the API."""
+        """Return additional lock attributes."""
 
         data = self.coordinator.data
         return {
