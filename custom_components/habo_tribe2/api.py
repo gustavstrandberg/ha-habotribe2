@@ -79,7 +79,8 @@ class GatewayState:
     dns_main: str | None = None
     dns_backup: str | None = None
     zigbee_channel: int | None = None
-    zigbee_pan_id: int | None = None
+    zigbee_pan_id: str | None = None
+    last_seen: str | None = None
 
 
 @dataclass(slots=True)
@@ -401,7 +402,8 @@ def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
         dns_main=_first_str(payload, "dnsMain", "dns1", "primaryDns"),
         dns_backup=_first_str(payload, "dnsBackup", "dns2", "secondaryDns"),
         zigbee_channel=_coerce_raw_int(payload.get("channel")),
-        zigbee_pan_id=_coerce_raw_int(payload.get("panID")),
+        zigbee_pan_id=_hex_string(payload.get("panID")),
+        last_seen=_first_str(data, "mqttLastUpdate", "lastUpdate"),
     )
 
 
@@ -516,7 +518,11 @@ def _parse_lock_state(data: dict[str, Any]) -> LockState:
         door_open=_coerce_bool(info.get("doorState")),
         door_state=_door_state_name(_coerce_int(info.get("doorState"))),
         bolt_state=_bolt_state_name(_coerce_int(info.get("boltState"))),
-        last_seen=_first_str(data, "mqttLastUpdate") or _first_str(data, "lastUpdate"),
+        last_seen=_latest_timestamp(
+            _first_str(data, "mqttLastUpdate", "lastUpdate"),
+            _latest_child_update(data.get("openings")),
+            _latest_child_update(data.get("fingerprints")),
+        ),
         operating_mode=operating_mode,
         scheduled_mode=_scheduled_mode_name(_coerce_int(info.get("schMode"))),
         rssi=_coerce_raw_int(info.get("rssi")),
@@ -592,6 +598,35 @@ def _coerce_raw_int(value: Any) -> int | None:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     return None
+
+
+def _hex_string(value: Any) -> str | None:
+    if isinstance(value, str):
+        normalized = value.strip().upper().removeprefix("0X")
+        if normalized and all(character in "0123456789ABCDEF" for character in normalized):
+            return normalized.zfill(4)
+    raw = _coerce_raw_int(value)
+    if raw is None:
+        return None
+    return f"{raw:04X}"
+
+
+def _latest_child_update(value: Any) -> str | None:
+    if not isinstance(value, list):
+        return None
+    updates = [
+        update
+        for item in value
+        if isinstance(item, dict)
+        for update in [_first_str(item, "lastUpdate", "mqttLastUpdate")]
+        if update is not None
+    ]
+    return max(updates, default=None)
+
+
+def _latest_timestamp(*values: str | None) -> str | None:
+    timestamps = [value for value in values if value]
+    return max(timestamps, default=None)
 
 
 def _coerce_locked(value: Any) -> bool | None:

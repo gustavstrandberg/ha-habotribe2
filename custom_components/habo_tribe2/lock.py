@@ -54,10 +54,10 @@ class HaboTribe2Lock(HaboTribe2Entity, LockEntity):
 
     @property
     def icon(self) -> str:
-        """Return an icon that makes the locked state stand out."""
+        """Return a plain lock icon for each state."""
 
         if self.coordinator.data.is_locked is True:
-            return "mdi:lock-alert"
+            return "mdi:lock"
         if self.coordinator.data.is_locked is False:
             return "mdi:lock-open-variant"
         return "mdi:lock-question"

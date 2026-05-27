@@ -156,6 +156,46 @@ class ApiParsingTest(unittest.TestCase):
         self.assertEqual(lock.smartbox.name, "HABO SmartBox")
         self.assertEqual(lock.smartbox.model, "HABO SmartBox V1")
         self.assertEqual(lock.smartbox.zigbee_channel, 14)
+        self.assertEqual(lock.smartbox.zigbee_pan_id, "9F51")
+
+    def test_gateway_pan_id_is_formatted_as_hex(self):
+        gateway = self.api._parse_gateway_state(
+            {
+                "id": "gateway-1",
+                "mqttPayload": {
+                    "panID": 54302,
+                },
+            }
+        )
+
+        self.assertEqual(gateway.zigbee_pan_id, "D41E")
+
+    def test_lock_last_seen_uses_child_updates_when_missing_on_lock(self):
+        lock = self.api._parse_lock_state(
+            {
+                "id": 1,
+                "gatewayId": "gateway-1",
+                "name": "Front Door",
+                "info": {
+                    "addr": 123,
+                    "lockState": 1,
+                    "doorState": 0,
+                    "boltState": 1,
+                    "opMode": 0,
+                    "schMode": 0,
+                    "vrm": 6556,
+                },
+                "openings": [
+                    {"lastUpdate": "2026-05-27T08:00:00"},
+                    {"lastUpdate": "2026-05-27T09:00:00"},
+                ],
+                "fingerprints": [
+                    {"lastUpdate": "2026-05-27T08:30:00"},
+                ],
+            }
+        )
+
+        self.assertEqual(lock.last_seen, "2026-05-27T09:00:00")
 
     def test_lock_and_unlock_do_not_send_pin(self):
         fake_client = FakeHttpClient()

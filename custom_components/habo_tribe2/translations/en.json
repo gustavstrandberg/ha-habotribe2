@@ -68,9 +68,6 @@
       "lock_state": {
         "name": "Lock state"
       },
-      "door_state": {
-        "name": "Door state"
-      },
       "bolt_state": {
         "name": "Bolt state"
       },
