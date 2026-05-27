@@ -25,6 +25,23 @@ Public Habo material describes the Smartbox as the bridge between the Tribe2
 lock and cloud service, so the integration stores Smartbox/device identifiers
 for each configured lock.
 
+## Data Sources
+
+The integration uses the cloud calls that are known to be safe and useful for
+normal Home Assistant operation.
+
+`GET /doorlocks` is used for lock state and lock details. This is the same data
+shown by the Doorlock Info view, including model, serial number, firmware,
+lock/door/bolt state, operating mode, RSSI, TX power, battery voltage, access
+entries, and fingerprint metadata when the cloud provides them.
+
+`GET /gw/list` is used for SmartBox details. Some SmartBox network fields, such
+as IP address, subnet, gateway, DNS, and mode, may not be returned by this cloud
+response. Those entities are treated as diagnostic data and remain unavailable
+until the cloud provides a value.
+
+`GET /logs/?take=200` is used for recent lock and SmartBox event log sensors.
+
 ## Install
 
 Copy `custom_components/habo_tribe2` into your Home Assistant config directory:
@@ -51,6 +68,7 @@ to add. Add the integration once per lock if the account has multiple locks.
 ```text
 POST /account/login
 GET /doorlocks
+GET /gw/list
 GET /logs/?take=200
 POST /doorlocks/{gateway_id}/{lock_addr}/lock
 POST /doorlocks/{gateway_id}/{lock_addr}/unlock?timeout=5000
