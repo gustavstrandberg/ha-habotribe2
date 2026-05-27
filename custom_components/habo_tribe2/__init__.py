@@ -22,7 +22,7 @@ async def async_migrate_entry(
 ) -> bool:
     """Migrate old config entries."""
 
-    if any(key in entry.data for key in LEGACY_SECRET_KEYS):
+    if any(key in entry.data or key in entry.options for key in LEGACY_SECRET_KEYS):
         data = {
             key: value
             for key, value in entry.data.items()
