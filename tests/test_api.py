@@ -207,6 +207,23 @@ class ApiParsingTest(unittest.TestCase):
         self.assertEqual(gateway.dns_main, "192.168.10.1")
         self.assertEqual(gateway.dns_backup, "0.0.0.0")
 
+    def test_gateway_nic_type_uses_wifi_for_wifi_state(self):
+        wifi_gateway = self.api._parse_gateway_state(
+            {
+                "id": "gateway-1",
+                "mqttPayload": {"state": "OnlineWifi"},
+            }
+        )
+        ethernet_gateway = self.api._parse_gateway_state(
+            {
+                "id": "gateway-2",
+                "mqttPayload": {"state": "OnlineEth"},
+            }
+        )
+
+        self.assertEqual(self.api._gateway_nic_type(wifi_gateway), "Wifi")
+        self.assertEqual(self.api._gateway_nic_type(ethernet_gateway), "Eth")
+
     def test_lock_last_seen_uses_child_updates_when_missing_on_lock(self):
         lock = self.api._parse_lock_state(
             {

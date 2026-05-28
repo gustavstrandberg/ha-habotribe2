@@ -188,27 +188,35 @@ class HaboTribe2Client:
             try:
                 _with_gateway_ip_config(
                     gateway,
-                    await self.async_get_gateway_ip_config(gateway_id),
+                    await self.async_get_gateway_ip_config(
+                        gateway_id,
+                        _gateway_nic_type(gateway),
+                    ),
                 )
             except HaboTribe2Error as err:
                 _LOGGER.debug("Unable to fetch HABO SmartBox IP config: %s", err)
         return gateways
 
-    async def async_get_gateway_ip_config(self, gateway_id: str) -> dict[str, Any]:
+    async def async_get_gateway_ip_config(
+        self,
+        gateway_id: str,
+        nic_type: str = "Eth",
+    ) -> dict[str, Any]:
         """Fetch cached SmartBox network configuration."""
 
         now = monotonic()
-        cached = self._gateway_info_cache.get(gateway_id)
+        cache_key = f"{gateway_id}:{nic_type}"
+        cached = self._gateway_info_cache.get(cache_key)
         if cached is not None and now - cached[0] < GATEWAY_INFO_TTL_SECONDS:
             return cached[1]
 
         data = await self._request(
             "GET",
             f"/gw/{gateway_id}/config/get-ip",
-            params={"nicType": "Eth"},
+            params={"nicType": nic_type},
         )
         config = _parse_gateway_ip_config(data)
-        self._gateway_info_cache[gateway_id] = (now, config)
+        self._gateway_info_cache[cache_key] = (now, config)
         return config
 
     async def async_get_logs(self, take: int = 200) -> list[EventLogEntry]:
@@ -457,6 +465,13 @@ def _parse_gateway_ip_config(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ApiSchemaError("Gateway IP config response does not contain an object")
     return data
+
+
+def _gateway_nic_type(gateway: GatewayState) -> str:
+    values = (gateway.state, gateway.mode)
+    if any(isinstance(value, str) and "wifi" in value.lower() for value in values):
+        return "Wifi"
+    return "Eth"
 
 
 def _with_gateway_ip_config(gateway: GatewayState, config: dict[str, Any]) -> GatewayState:
