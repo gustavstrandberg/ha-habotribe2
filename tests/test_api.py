@@ -183,6 +183,30 @@ class ApiParsingTest(unittest.TestCase):
 
         self.assertEqual(gateway.zigbee_pan_id, "D41E")
 
+    def test_gateway_ip_config_populates_network_sensors(self):
+        gateway = self.api._parse_gateway_state({"id": "gateway-1"})
+
+        self.api._with_gateway_ip_config(
+            gateway,
+            self.api._parse_gateway_ip_config(
+                {
+                    "isStatic": False,
+                    "addressString": "192.168.10.27",
+                    "subnetMaskString": "255.255.255.0",
+                    "gatewayString": "192.168.10.1",
+                    "dnS1String": "192.168.10.1",
+                    "dnS2String": "0.0.0.0",
+                }
+            ),
+        )
+
+        self.assertEqual(gateway.mode, "dhcp")
+        self.assertEqual(gateway.address, "192.168.10.27")
+        self.assertEqual(gateway.subnet, "255.255.255.0")
+        self.assertEqual(gateway.gateway, "192.168.10.1")
+        self.assertEqual(gateway.dns_main, "192.168.10.1")
+        self.assertEqual(gateway.dns_backup, "0.0.0.0")
+
     def test_lock_last_seen_uses_child_updates_when_missing_on_lock(self):
         lock = self.api._parse_lock_state(
             {

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+from time import monotonic
 from typing import Any
 
 import httpx
 
 _LOGGER = logging.getLogger(__name__)
+GATEWAY_INFO_TTL_SECONDS = 12 * 60 * 60
 
 
 class HaboTribe2Error(Exception):
@@ -133,6 +135,7 @@ class HaboTribe2Client:
         self._client = client or httpx.AsyncClient(timeout=20)
         self._owns_client = client is None
         self._token: str | None = None
+        self._gateway_info_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
     async def async_close(self) -> None:
         """Close the underlying HTTP client."""
@@ -180,7 +183,33 @@ class HaboTribe2Client:
         """Fetch all SmartBoxes visible to the account."""
 
         data = await self._request("GET", "/gw/list")
-        return _parse_gateway_map(data)
+        gateways = _parse_gateway_map(data)
+        for gateway_id, gateway in gateways.items():
+            try:
+                _with_gateway_ip_config(
+                    gateway,
+                    await self.async_get_gateway_ip_config(gateway_id),
+                )
+            except HaboTribe2Error as err:
+                _LOGGER.debug("Unable to fetch HABO SmartBox IP config: %s", err)
+        return gateways
+
+    async def async_get_gateway_ip_config(self, gateway_id: str) -> dict[str, Any]:
+        """Fetch cached SmartBox network configuration."""
+
+        now = monotonic()
+        cached = self._gateway_info_cache.get(gateway_id)
+        if cached is not None and now - cached[0] < GATEWAY_INFO_TTL_SECONDS:
+            return cached[1]
+
+        data = await self._request(
+            "GET",
+            f"/gw/{gateway_id}/config/get-ip",
+            params={"nicType": "Eth"},
+        )
+        config = _parse_gateway_ip_config(data)
+        self._gateway_info_cache[gateway_id] = (now, config)
+        return config
 
     async def async_get_logs(self, take: int = 200) -> list[EventLogEntry]:
         """Fetch recent event logs."""
@@ -422,6 +451,25 @@ def _parse_gateway_state(data: dict[str, Any]) -> GatewayState:
         zigbee_pan_id=_hex_string(payload.get("panID")),
         last_seen=_first_str(data, "mqttLastUpdate", "lastUpdate"),
     )
+
+
+def _parse_gateway_ip_config(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ApiSchemaError("Gateway IP config response does not contain an object")
+    return data
+
+
+def _with_gateway_ip_config(gateway: GatewayState, config: dict[str, Any]) -> GatewayState:
+    is_static = config.get("isStatic")
+    if isinstance(is_static, bool):
+        gateway.mode = "static" if is_static else "dhcp"
+
+    gateway.address = _first_str(config, "addressString") or gateway.address
+    gateway.subnet = _first_str(config, "subnetMaskString") or gateway.subnet
+    gateway.gateway = _first_str(config, "gatewayString") or gateway.gateway
+    gateway.dns_main = _first_str(config, "dnS1String", "dns1String") or gateway.dns_main
+    gateway.dns_backup = _first_str(config, "dnS2String", "dns2String") or gateway.dns_backup
+    return gateway
 
 
 def _with_gateway(lock: LockState, gateway: GatewayState | None) -> LockState:
