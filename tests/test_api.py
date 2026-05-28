@@ -247,9 +247,9 @@ class ApiParsingTest(unittest.TestCase):
             self.api._parse_lock_info_attr("S1JRAVcnEQByBAAAvQYAAA=="),
         )
 
-        self.assertEqual(lock.total_run_time, 1124183)
-        self.assertEqual(lock.open_time, 1138)
-        self.assertEqual(lock.unlock_events, 1725)
+        self.assertEqual(lock.total_run_time, 22106699)
+        self.assertEqual(lock.open_time, 1124183)
+        self.assertEqual(lock.unlock_events, 1138)
 
     def test_lock_last_seen_uses_child_updates_when_missing_on_lock(self):
         lock = self.api._parse_lock_state(

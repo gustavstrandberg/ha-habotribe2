@@ -510,9 +510,9 @@ def _parse_lock_info_attr(data: Any) -> dict[str, int]:
         raise ApiSchemaError("Doorlock Info response is too short")
 
     return {
-        "total_run_time": int.from_bytes(payload[4:8], "little"),
-        "open_time": int.from_bytes(payload[8:12], "little"),
-        "unlock_events": int.from_bytes(payload[12:16], "little"),
+        "total_run_time": int.from_bytes(payload[0:4], "little"),
+        "open_time": int.from_bytes(payload[4:8], "little"),
+        "unlock_events": int.from_bytes(payload[8:12], "little"),
     }
 
 
