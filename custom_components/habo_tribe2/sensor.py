@@ -24,6 +24,7 @@ from .api import EventLogEntry, LockState
 from .const import DOMAIN
 from .coordinator import HaboTribe2Coordinator
 from .entity import HaboTribe2Entity
+from .formatting import duration_text
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -120,8 +121,7 @@ SENSOR_DESCRIPTIONS = (
         icon="mdi:timer-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.total_run_time,
+        value_fn=lambda data: duration_text(data.total_run_time),
     ),
     HaboTribe2SensorDescription(
         key="open_time",
@@ -129,8 +129,7 @@ SENSOR_DESCRIPTIONS = (
         icon="mdi:door-open",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: data.open_time,
+        value_fn=lambda data: duration_text(data.open_time),
     ),
     HaboTribe2SensorDescription(
         key="unlock_events",
