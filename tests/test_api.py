@@ -224,6 +224,33 @@ class ApiParsingTest(unittest.TestCase):
         self.assertEqual(self.api._gateway_nic_type(wifi_gateway), "Wifi")
         self.assertEqual(self.api._gateway_nic_type(ethernet_gateway), "Eth")
 
+    def test_lock_info_attr_populates_runtime_counters(self):
+        lock = self.api._parse_lock_state(
+            {
+                "id": 1,
+                "gatewayId": "gateway-1",
+                "name": "Front Door",
+                "info": {
+                    "addr": 123,
+                    "lockState": 1,
+                    "doorState": 0,
+                    "boltState": 1,
+                    "opMode": 0,
+                    "schMode": 0,
+                    "vrm": 6556,
+                },
+            }
+        )
+
+        self.api._with_lock_info(
+            lock,
+            self.api._parse_lock_info_attr("S1JRAVcnEQByBAAAvQYAAA=="),
+        )
+
+        self.assertEqual(lock.total_run_time, 1124183)
+        self.assertEqual(lock.open_time, 1138)
+        self.assertEqual(lock.unlock_events, 1725)
+
     def test_lock_last_seen_uses_child_updates_when_missing_on_lock(self):
         lock = self.api._parse_lock_state(
             {

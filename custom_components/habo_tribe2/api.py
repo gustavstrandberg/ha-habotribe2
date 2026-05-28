@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import dataclass
 import logging
 from time import monotonic
@@ -11,6 +13,7 @@ import httpx
 
 _LOGGER = logging.getLogger(__name__)
 GATEWAY_INFO_TTL_SECONDS = 12 * 60 * 60
+LOCK_INFO_ATTR = 65527
 
 
 class HaboTribe2Error(Exception):
@@ -136,6 +139,7 @@ class HaboTribe2Client:
         self._owns_client = client is None
         self._token: str | None = None
         self._gateway_info_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._lock_info_cache: dict[str, tuple[float, dict[str, int]]] = {}
 
     async def async_close(self) -> None:
         """Close the underlying HTTP client."""
@@ -174,6 +178,14 @@ class HaboTribe2Client:
         except HaboTribe2Error as err:
             _LOGGER.debug("Unable to fetch HABO event logs: %s", err)
             events = []
+        for lock in locks:
+            try:
+                _with_lock_info(
+                    lock,
+                    await self.async_get_lock_info(lock.gateway_id, lock.lock_addr),
+                )
+            except HaboTribe2Error as err:
+                _LOGGER.debug("Unable to fetch HABO Doorlock Info: %s", err)
         return [
             _with_events(_with_gateway(lock, gateways.get(lock.gateway_id)), events)
             for lock in locks
@@ -218,6 +230,24 @@ class HaboTribe2Client:
         config = _parse_gateway_ip_config(data)
         self._gateway_info_cache[cache_key] = (now, config)
         return config
+
+    async def async_get_lock_info(self, gateway_id: str, lock_addr: int) -> dict[str, int]:
+        """Fetch cached Doorlock Info counters."""
+
+        now = monotonic()
+        cache_key = f"{gateway_id}:{lock_addr}"
+        cached = self._lock_info_cache.get(cache_key)
+        if cached is not None and now - cached[0] < GATEWAY_INFO_TTL_SECONDS:
+            return cached[1]
+
+        data = await self._request(
+            "GET",
+            f"/doorlocks/{gateway_id}/{lock_addr}/attr",
+            params={"attr": LOCK_INFO_ATTR},
+        )
+        info = _parse_lock_info_attr(data)
+        self._lock_info_cache[cache_key] = (now, info)
+        return info
 
     async def async_get_logs(self, take: int = 200) -> list[EventLogEntry]:
         """Fetch recent event logs."""
@@ -467,6 +497,25 @@ def _parse_gateway_ip_config(data: Any) -> dict[str, Any]:
     return data
 
 
+def _parse_lock_info_attr(data: Any) -> dict[str, int]:
+    if not isinstance(data, str):
+        raise ApiSchemaError("Doorlock Info response does not contain a base64 payload")
+
+    try:
+        payload = base64.b64decode(data, validate=True)
+    except binascii.Error as err:
+        raise ApiSchemaError("Doorlock Info response is not valid base64") from err
+
+    if len(payload) < 16:
+        raise ApiSchemaError("Doorlock Info response is too short")
+
+    return {
+        "total_run_time": int.from_bytes(payload[4:8], "little"),
+        "open_time": int.from_bytes(payload[8:12], "little"),
+        "unlock_events": int.from_bytes(payload[12:16], "little"),
+    }
+
+
 def _gateway_nic_type(gateway: GatewayState) -> str:
     values = (gateway.state, gateway.mode)
     if any(isinstance(value, str) and "wifi" in value.lower() for value in values):
@@ -489,6 +538,13 @@ def _with_gateway_ip_config(gateway: GatewayState, config: dict[str, Any]) -> Ga
 
 def _with_gateway(lock: LockState, gateway: GatewayState | None) -> LockState:
     lock.smartbox = gateway
+    return lock
+
+
+def _with_lock_info(lock: LockState, info: dict[str, int]) -> LockState:
+    lock.total_run_time = info.get("total_run_time", lock.total_run_time)
+    lock.open_time = info.get("open_time", lock.open_time)
+    lock.unlock_events = info.get("unlock_events", lock.unlock_events)
     return lock
 
 
