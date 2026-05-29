@@ -11,7 +11,8 @@ Implemented:
 
 - Login with email/password: `POST /account/login`
 - Lock discovery: `GET /doorlocks`
-- Lock and unlock commands using SmartBox gateway ID and lock address
+- Lock and unlock commands using SmartBox gateway ID, lock address, and the
+  Admin PIN returned by the cloud lock list
 - Operating mode changes for Normal, Privacy, and Passage
 - Door open/closed, connectivity, battery estimate, voltage, and last-seen state
 - Additional lock detail sensors for model, serial number, firmware, states, RSSI,
@@ -35,10 +36,16 @@ shown by the Doorlock Info view, including model, serial number, firmware,
 lock/door/bolt state, operating mode, RSSI, TX power, battery voltage, access
 entries, and fingerprint metadata when the cloud provides them.
 
-`GET /gw/list` is used for SmartBox details. Some SmartBox network fields, such
-as IP address, subnet, gateway, DNS, and mode, may not be returned by this cloud
-response. Those entities are treated as diagnostic data and remain unavailable
-until the cloud provides a value.
+`GET /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65527` is used for Doorlock
+Info counters. The response is decoded into total run time, open time, and
+unlock events.
+
+`GET /gw/list` is used for SmartBox identity, firmware, state, ZigBee channel,
+and ZigBee PanID.
+
+`GET /gw/{gateway_id}/config/get-ip?nicType=Eth` or `nicType=Wifi` is used for
+SmartBox network details. The interface is selected from the SmartBox state when
+possible.
 
 `GET /logs/?take=200` is used for recent lock and SmartBox event log sensors.
 
@@ -69,9 +76,11 @@ to add. Add the integration once per lock if the account has multiple locks.
 POST /account/login
 GET /doorlocks
 GET /gw/list
+GET /gw/{gateway_id}/config/get-ip?nicType={Eth|Wifi}
 GET /logs/?take=200
-POST /doorlocks/{gateway_id}/{lock_addr}/lock
-POST /doorlocks/{gateway_id}/{lock_addr}/unlock?timeout=5000
+GET /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65527
+POST /doorlocks/{gateway_id}/{lock_addr}/lock?pin={admin_pin}
+POST /doorlocks/{gateway_id}/{lock_addr}/unlock?pin={admin_pin}&timeout=5000
 POST /doorlocks/{gateway_id}/{lock_addr}/attr?attr=65317
 ```
 
@@ -82,7 +91,6 @@ normal:  "AA=="
 privacy: "Ag=="
 passage: "BA=="
 ```
-
 
 ## Production test checklist
 
