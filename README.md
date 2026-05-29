@@ -19,7 +19,8 @@ Implemented:
   TX power, runtime counters, and event counters when the cloud provides them
 - SmartBox sensors for model, serial number, firmware, state, network details,
   DNS, ZigBee channel, and ZigBee PanID when the cloud provides them
-- Recent event log sensors for each lock and SmartBox
+- Recent event log sensors for each lock and SmartBox, with the latest event as
+  the sensor state and recent entries as readable attributes
 - Diagnostics with password, PIN, token, and username redacted
 
 Public Habo material describes the Smartbox as the bridge between the Tribe2
@@ -48,6 +49,8 @@ SmartBox network details. The interface is selected from the SmartBox state when
 possible.
 
 `GET /logs/?take=200` is used for recent lock and SmartBox event log sensors.
+Each event log sensor shows the latest matching event as its state and exposes
+the recent matching entries as attributes.
 
 ## Install
 

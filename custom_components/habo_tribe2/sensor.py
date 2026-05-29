@@ -162,8 +162,8 @@ SENSOR_DESCRIPTIONS = (
         key="event_log",
         translation_key="event_log",
         icon="mdi:clipboard-text-clock-outline",
-        value_fn=lambda data: _latest_event_text(data.events),
-        attrs_fn=lambda data: {"events": _event_attributes(data.events)},
+        value_fn=lambda data: _latest_event_summary(data.events),
+        attrs_fn=lambda data: _event_attributes(data.events),
     ),
     HaboTribe2SensorDescription(
         key="smartbox_name",
@@ -284,8 +284,8 @@ SENSOR_DESCRIPTIONS = (
         translation_key="smartbox_event_log",
         device="smartbox",
         icon="mdi:clipboard-text-clock-outline",
-        value_fn=lambda data: _latest_event_text(data.smartbox_events),
-        attrs_fn=lambda data: {"events": _event_attributes(data.smartbox_events)},
+        value_fn=lambda data: _latest_event_summary(data.smartbox_events),
+        attrs_fn=lambda data: _event_attributes(data.smartbox_events),
     ),
 )
 
@@ -392,11 +392,10 @@ def _last_seen_timestamp(data: LockState) -> datetime | None:
     return _parse_timestamp(data.last_seen or _latest_event_date(data.events))
 
 
-def _latest_event_text(events: list[EventLogEntry] | None) -> str | None:
+def _latest_event_summary(events: list[EventLogEntry] | None) -> str | None:
     if not events:
         return "No events"
-    event = events[0]
-    return event.event_title or event.text or event.event_code
+    return _event_summary(events[0])
 
 
 def _latest_event_date(events: list[EventLogEntry] | None) -> str | None:
@@ -405,10 +404,29 @@ def _latest_event_date(events: list[EventLogEntry] | None) -> str | None:
     return events[0].date
 
 
-def _event_attributes(events: list[EventLogEntry] | None) -> list[dict[str, Any]]:
+def _event_summary(event: EventLogEntry) -> str:
+    title = event.event_title or event.text or event.event_code or "Event"
+    timestamp = _short_timestamp(event.date or event.timestamp)
+    if timestamp:
+        return f"{timestamp} - {title}"
+    return title
+
+
+def _short_timestamp(value: str | None) -> str | None:
+    if not value:
+        return None
+    return value.replace("T", " ").replace("Z", "").split("+", maxsplit=1)[0]
+
+
+def _event_attributes(events: list[EventLogEntry] | None) -> dict[str, Any]:
     if not events:
-        return []
-    return [
+        return {"event_count": 0}
+
+    attributes: dict[str, Any] = {"event_count": len(events)}
+    for index, event in enumerate(events[:10], start=1):
+        attributes[f"event_{index}"] = _event_summary(event)
+
+    attributes["raw_events"] = [
         {
             "id": event.event_id,
             "date": event.date,
@@ -422,5 +440,6 @@ def _event_attributes(events: list[EventLogEntry] | None) -> list[dict[str, Any]
             "timestamp": event.timestamp,
             "user_id": event.user_id,
         }
-        for event in events[:200]
+        for event in events[:20]
     ]
+    return attributes
