@@ -27,4 +27,4 @@ class HaboTribe2Entity(CoordinatorEntity[HaboTribe2Coordinator]):
     def available(self) -> bool:
         """Return if entity is available."""
 
-        return super().available and self.coordinator.data.connected is not False
+        return super().available
