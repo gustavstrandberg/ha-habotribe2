@@ -19,6 +19,7 @@ from .api import (
     LockState,
 )
 from .const import (
+    CONF_API_RESPONSE_LOGGING,
     CONF_BASE_URL,
     CONF_DEVICE_ID,
     CONF_GATEWAY_ID,
@@ -194,4 +195,43 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="lock",
             data_schema=vol.Schema({vol.Required(CONF_DEVICE_ID): vol.In(lock_map)}),
             errors=errors,
+        )
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> HaboTribe2OptionsFlow:
+        """Create the options flow."""
+
+        return HaboTribe2OptionsFlow(config_entry)
+
+
+class HaboTribe2OptionsFlow(config_entries.OptionsFlow):
+    """Handle options for HABO Tribe2 Smart Lock."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
+        """Manage integration options."""
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_API_RESPONSE_LOGGING,
+                        default=self._config_entry.options.get(
+                            CONF_API_RESPONSE_LOGGING,
+                            False,
+                        ),
+                    ): selector.BooleanSelector(),
+                }
+            ),
         )

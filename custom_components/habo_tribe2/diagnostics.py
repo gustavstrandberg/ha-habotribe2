@@ -16,6 +16,9 @@ TO_REDACT = {
     "device_token",
     "pin",
     "admin_pin",
+    "accessToken",
+    "authorization",
+    "token",
 }
 
 
@@ -31,6 +34,10 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": async_redact_data(entry.as_dict(), TO_REDACT),
         "last_update_success": coordinator.last_update_success,
+        "recent_api_json_responses": async_redact_data(
+            coordinator.client.recent_json_responses,
+            TO_REDACT,
+        ),
         "parsed_state": {
             "device_id": data.device_id,
             "gateway_id": data.gateway_id,

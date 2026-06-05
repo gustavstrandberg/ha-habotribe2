@@ -8,7 +8,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 
 from .api import HaboTribe2Client
-from .const import CONF_BASE_URL, PLATFORMS
+from .const import (
+    CONF_API_RESPONSE_LOGGING,
+    CONF_BASE_URL,
+    DEFAULT_API_RESPONSE_LOG_LIMIT,
+    PLATFORMS,
+)
 from .coordinator import HaboTribe2Coordinator
 
 type HaboTribe2ConfigEntry = ConfigEntry[HaboTribe2Coordinator]
@@ -43,10 +48,13 @@ async def async_setup_entry(
 ) -> bool:
     """Set up HABO Tribe2 Smart Lock from a config entry."""
 
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     client = HaboTribe2Client(
         base_url=entry.data[CONF_BASE_URL],
         username=entry.data[CONF_USERNAME],
         password=entry.data[CONF_PASSWORD],
+        enable_response_logging=entry.options.get(CONF_API_RESPONSE_LOGGING, False),
+        response_log_limit=DEFAULT_API_RESPONSE_LOG_LIMIT,
     )
     coordinator = HaboTribe2Coordinator(hass, entry, client)
     try:
@@ -74,3 +82,12 @@ async def async_unload_entry(
     if unload_ok:
         await entry.runtime_data.client.async_close()
     return unload_ok
+
+
+async def async_reload_entry(
+    hass: HomeAssistant,
+    entry: HaboTribe2ConfigEntry,
+) -> None:
+    """Reload a config entry when options change."""
+
+    await hass.config_entries.async_reload(entry.entry_id)

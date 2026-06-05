@@ -38,6 +38,16 @@
       "unknown": "Unexpected error"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HABO Tribe2 options",
+        "data": {
+          "api_response_logging": "Keep recent API JSON responses in diagnostics"
+        }
+      }
+    }
+  },
   "entity": {
     "lock": {
       "lock": {

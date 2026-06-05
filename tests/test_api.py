@@ -47,19 +47,22 @@ def load_api_module():
 
 
 class FakeResponse:
-    status_code = 200
-    content = b'"Ok"'
+    def __init__(self, data="Ok", status_code=200):
+        self._data = data
+        self.status_code = status_code
+        self.content = b"{}"
 
     def raise_for_status(self):
         return None
 
     def json(self):
-        return "Ok"
+        return self._data
 
 
 class FakeHttpClient:
-    def __init__(self):
+    def __init__(self, responses=None):
         self.requests = []
+        self._responses = list(responses or [])
 
     async def request(self, method, url, headers=None, **kwargs):
         self.requests.append(
@@ -70,6 +73,8 @@ class FakeHttpClient:
                 "kwargs": kwargs,
             }
         )
+        if self._responses:
+            return self._responses.pop(0)
         return FakeResponse()
 
 
@@ -320,6 +325,63 @@ class ApiParsingTest(unittest.TestCase):
 
         self.assertEqual(lock_request["kwargs"]["params"], {"pin": "123456"})
         self.assertEqual(unlock_request["kwargs"]["params"], {"timeout": 5000, "pin": "123456"})
+
+    def test_api_response_logging_is_disabled_by_default(self):
+        fake_client = FakeHttpClient([FakeResponse({"state": "ok"})])
+        client = self.api.HaboTribe2Client(
+            base_url="https://example.test/api/v1",
+            username="user@example.test",
+            password="secret",
+            client=fake_client,
+        )
+        client._token = "token"
+
+        data = asyncio.run(client._request("GET", "/doorlocks"))
+
+        self.assertEqual(data, {"state": "ok"})
+        self.assertEqual(client.recent_json_responses, [])
+
+    def test_api_response_logging_keeps_latest_json_responses(self):
+        fake_client = FakeHttpClient(
+            [
+                FakeResponse({"first": True}),
+                FakeResponse(
+                    {
+                        "second": True,
+                        "token": "secret-token",
+                        "openings": [{"pin": "123456"}],
+                    }
+                ),
+            ]
+        )
+        client = self.api.HaboTribe2Client(
+            base_url="https://example.test/api/v1",
+            username="user@example.test",
+            password="secret",
+            client=fake_client,
+            enable_response_logging=True,
+            response_log_limit=1,
+        )
+        client._token = "token"
+
+        asyncio.run(client._request("GET", "/doorlocks", params={"take": 1}))
+        asyncio.run(client._request("GET", "/logs/", params={"take": 2}))
+
+        responses = client.recent_json_responses
+        self.assertEqual(len(responses), 1)
+        self.assertEqual(responses[0]["method"], "GET")
+        self.assertEqual(responses[0]["path"], "/logs/")
+        self.assertEqual(responses[0]["params"], {"take": 2})
+        self.assertEqual(responses[0]["status_code"], 200)
+        self.assertEqual(
+            responses[0]["response"],
+            {
+                "second": True,
+                "token": "**REDACTED**",
+                "openings": [{"pin": "**REDACTED**"}],
+            },
+        )
+        self.assertIn("timestamp", responses[0])
 
     def test_event_logs_are_filtered_for_lock_and_gateway(self):
         lock = self.api._parse_lock_state(

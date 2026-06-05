@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections import deque
+from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 import logging
 from time import monotonic
 from typing import Any
@@ -14,6 +17,16 @@ import httpx
 _LOGGER = logging.getLogger(__name__)
 GATEWAY_INFO_TTL_SECONDS = 12 * 60 * 60
 LOCK_INFO_ATTR = 65527
+RESPONSE_LOG_REDACT_KEYS = {
+    "accesstoken",
+    "admin_pin",
+    "authorization",
+    "device_token",
+    "password",
+    "pin",
+    "token",
+    "username",
+}
 
 
 class HaboTribe2Error(Exception):
@@ -131,6 +144,8 @@ class HaboTribe2Client:
         username: str,
         password: str,
         client: httpx.AsyncClient | None = None,
+        enable_response_logging: bool = False,
+        response_log_limit: int = 20,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._username = username
@@ -140,6 +155,14 @@ class HaboTribe2Client:
         self._token: str | None = None
         self._gateway_info_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._lock_info_cache: dict[str, tuple[float, dict[str, int]]] = {}
+        self._enable_response_logging = enable_response_logging
+        self._response_log: deque[dict[str, Any]] = deque(maxlen=max(1, response_log_limit))
+
+    @property
+    def recent_json_responses(self) -> list[dict[str, Any]]:
+        """Return the captured API JSON responses for diagnostics."""
+
+        return deepcopy(list(self._response_log))
 
     async def async_close(self) -> None:
         """Close the underlying HTTP client."""
@@ -394,7 +417,33 @@ class HaboTribe2Client:
             raise ApiSchemaError("HABO cloud returned a non-JSON response") from err
 
         _LOGGER.debug("HABO Tribe2 %s %s returned HTTP %s", method, path, response.status_code)
+        self._capture_json_response(method, path, response.status_code, kwargs, data)
         return data
+
+    def _capture_json_response(
+        self,
+        method: str,
+        path: str,
+        status_code: int,
+        request_kwargs: dict[str, Any],
+        data: Any,
+    ) -> None:
+        """Keep recent JSON responses when troubleshooting capture is enabled."""
+
+        if not self._enable_response_logging:
+            return
+
+        entry: dict[str, Any] = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "response": _redact_response_log_data(data),
+        }
+        params = request_kwargs.get("params")
+        if params is not None:
+            entry["params"] = _redact_response_log_data(params)
+        self._response_log.append(entry)
 
 
 def _parse_lock_list(data: Any) -> list[LockState]:
@@ -409,6 +458,21 @@ def _parse_lock_list(data: Any) -> list[LockState]:
         raise ApiSchemaError("Doorlocks response does not contain a lock list")
 
     return [_parse_lock_state(lock) for lock in raw_locks if isinstance(lock, dict)]
+
+
+def _redact_response_log_data(data: Any) -> Any:
+    """Return a copy of JSON-like data with known secret fields redacted."""
+
+    if isinstance(data, dict):
+        return {
+            key: "**REDACTED**"
+            if str(key).lower() in RESPONSE_LOG_REDACT_KEYS
+            else _redact_response_log_data(value)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [_redact_response_log_data(item) for item in data]
+    return deepcopy(data)
 
 
 def _parse_gateway_map(data: Any) -> dict[str, GatewayState]:
