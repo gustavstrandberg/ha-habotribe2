@@ -130,27 +130,6 @@ privacy: "Ag=="
 passage: "BA=="
 ```
 
-## Production test checklist
-
-Start with a lock you can physically access.
-
-1. Install the integration and restart Home Assistant.
-2. Add the integration from **Settings > Devices & services**.
-3. Verify the lock, door, connected, battery, and operating mode entities appear.
-4. Confirm the mobile app and Home Assistant show the same lock/door state.
-5. Test refresh-only behavior first by opening/closing the door and waiting for polling.
-6. Test `unlock`, then verify the physical door and mobile app state.
-7. Test `lock`, then verify the physical door and mobile app state.
-8. Test Normal/Privacy/Passage mode changes only when someone is near the lock.
-9. Download diagnostics if behavior differs; secrets should be redacted.
-
-Known production-test limits:
-
-- State is cloud polling, not MQTT push, so updates can lag by up to the polling interval.
-- Battery percentage is estimated from the `vrm` voltage-like field. Values
-  outside a plausible lock battery range are ignored instead of shown as mV.
-- HABO sometimes returns code `305` / `Busy`; Home Assistant reports this as a clean service error.
-
 ## Releases
 
 The integration version is defined in
