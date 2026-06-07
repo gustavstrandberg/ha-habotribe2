@@ -22,6 +22,8 @@ Implemented:
 - Recent event log sensors for each lock and SmartBox, with the latest event as
   the sensor state and recent entries as readable attributes
 - Diagnostics with password, PIN, token, and username redacted
+- Optional troubleshooting capture of recent raw API JSON responses in
+  diagnostics, with known secret fields redacted
 
 Public Habo material describes the Smartbox as the bridge between the Tribe2
 lock and cloud service, so the integration stores Smartbox/device identifiers
@@ -52,7 +54,25 @@ possible.
 Each event log sensor shows the latest matching event as its state and exposes
 the recent matching entries as attributes.
 
-## Install
+## Install with HACS
+
+This integration can be installed as a HACS custom repository.
+
+1. Open **HACS** in Home Assistant.
+2. Choose **Custom repositories**.
+3. Add this repository URL:
+
+   ```text
+   https://github.com/gustavstrandberg/ha-habotribe2
+   ```
+
+4. Select **Integration** as the repository type.
+5. Install **HABO Tribe2 Smart Lock**.
+6. Restart Home Assistant.
+7. Add **HABO Tribe2 Smart Lock** from
+   **Settings > Devices & services > Add integration**.
+
+## Manual install
 
 Copy `custom_components/habo_tribe2` into your Home Assistant config directory:
 
@@ -72,6 +92,21 @@ The setup flow asks for:
 
 After login, the integration fetches `/doorlocks` and lets you choose the lock
 to add. Add the integration once per lock if the account has multiple locks.
+
+## Diagnostics and troubleshooting
+
+Diagnostics are available from the integration or device menu in Home Assistant.
+Downloaded diagnostics redact password, username, PIN, token, and known legacy
+secret fields.
+
+For deeper troubleshooting, open the integration options and enable **Keep
+recent API JSON responses in diagnostics**. The integration will keep the latest
+20 JSON responses in memory and include them in diagnostics under
+`recent_api_json_responses`.
+
+This capture is intended for temporary troubleshooting. It is bounded in memory,
+but normal users should leave it disabled unless they are investigating an
+unexpected cloud response or integration behavior.
 
 ## Implemented cloud calls
 
@@ -115,6 +150,13 @@ Known production-test limits:
 - Battery percentage is estimated from the `vrm` voltage-like field. Values
   outside a plausible lock battery range are ignored instead of shown as mV.
 - HABO sometimes returns code `305` / `Busy`; Home Assistant reports this as a clean service error.
+
+## Releases
+
+The integration version is defined in
+`custom_components/habo_tribe2/manifest.json`. GitHub releases use matching
+version tags, for example `v0.4.13`, so HACS users can choose stable release
+versions.
 
 ## License
 
