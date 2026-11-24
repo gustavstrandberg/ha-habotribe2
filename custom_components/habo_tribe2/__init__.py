@@ -27,7 +27,9 @@ async def async_migrate_entry(
 ) -> bool:
     """Migrate old config entries."""
 
-    if any(key in entry.data or key in entry.options for key in LEGACY_SECRET_KEYS):
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
         data = {
             key: value
             for key, value in entry.data.items()
@@ -38,7 +40,7 @@ async def async_migrate_entry(
             for key, value in entry.options.items()
             if key not in LEGACY_SECRET_KEYS
         }
-        hass.config_entries.async_update_entry(entry, data=data, options=options)
+        hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
     return True
 
 

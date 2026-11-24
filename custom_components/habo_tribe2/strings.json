@@ -5,7 +5,6 @@
         "title": "HABO Tribe2 Smart Lock",
         "description": "Connect to the HABO Tribe2 cloud API.",
         "data": {
-          "base_url": "Cloud API base URL",
           "username": "Username",
           "password": "Password"
         }
@@ -43,7 +42,7 @@
       "init": {
         "title": "HABO Tribe2 options",
         "data": {
-          "api_response_logging": "Keep recent API JSON responses in diagnostics"
+          "api_response_logging": "Include recent request times, methods and status codes in diagnostics"
         }
       }
     }

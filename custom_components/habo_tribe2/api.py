@@ -6,27 +6,19 @@ import base64
 import binascii
 from collections import deque
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import json
 import logging
 from time import monotonic
 from typing import Any
 
-import httpx
+import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 GATEWAY_INFO_TTL_SECONDS = 12 * 60 * 60
 LOCK_INFO_ATTR = 65527
-RESPONSE_LOG_REDACT_KEYS = {
-    "accesstoken",
-    "admin_pin",
-    "authorization",
-    "device_token",
-    "password",
-    "pin",
-    "token",
-    "username",
-}
+DEFAULT_BASE_URL = "https://api.habotribe.com/api/v1"
 
 
 class HaboTribe2Error(Exception):
@@ -38,12 +30,10 @@ class HaboTribe2Error(Exception):
         *,
         status_code: int | None = None,
         api_code: int | None = None,
-        api_error: str | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.api_code = api_code
-        self.api_error = api_error
 
 
 class AuthenticationError(HaboTribe2Error):
@@ -131,7 +121,7 @@ class LockState:
     smartbox: GatewayState | None = None
     events: list[EventLogEntry] | None = None
     smartbox_events: list[EventLogEntry] | None = None
-    admin_pin: str | None = None
+    admin_pin: str | None = field(default=None, repr=False)
 
 
 class HaboTribe2Client:
@@ -143,14 +133,16 @@ class HaboTribe2Client:
         base_url: str,
         username: str,
         password: str,
-        client: httpx.AsyncClient | None = None,
+        client: aiohttp.ClientSession | None = None,
         enable_response_logging: bool = False,
         response_log_limit: int = 20,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._username = username
         self._password = password
-        self._client = client or httpx.AsyncClient(timeout=20)
+        self._client = client or aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=20), cookie_jar=aiohttp.DummyCookieJar()
+        )
         self._owns_client = client is None
         self._token: str | None = None
         self._gateway_info_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -159,8 +151,8 @@ class HaboTribe2Client:
         self._response_log: deque[dict[str, Any]] = deque(maxlen=max(1, response_log_limit))
 
     @property
-    def recent_json_responses(self) -> list[dict[str, Any]]:
-        """Return the captured API JSON responses for diagnostics."""
+    def recent_request_metadata(self) -> list[dict[str, Any]]:
+        """Return the request metadata for diagnostics."""
 
         return deepcopy(list(self._response_log))
 
@@ -168,7 +160,7 @@ class HaboTribe2Client:
         """Close the underlying HTTP client."""
 
         if self._owns_client:
-            await self._client.aclose()
+            await self._client.close()
 
     async def async_login(self) -> None:
         """Authenticate with the cloud service."""
@@ -278,11 +270,17 @@ class HaboTribe2Client:
         data = await self._request("GET", "/logs/", params={"take": take})
         return _parse_event_logs(data)
 
-    async def async_get_lock(self, device_id: str) -> LockState:
+    async def async_get_lock(
+        self, device_id: str, gateway_id: str, lock_addr: int
+    ) -> LockState:
         """Fetch and normalize a single lock state."""
 
         for lock in await self.async_get_locks():
-            if lock.device_id == device_id or str(lock.lock_addr) == device_id:
+            if (
+                lock.gateway_id == gateway_id
+                and lock.lock_addr == lock_addr
+                and device_id in (lock.device_id, str(lock_addr))
+            ):
                 return lock
         raise ApiSchemaError(f"Lock {device_id} was not returned by the cloud")
 
@@ -355,6 +353,8 @@ class HaboTribe2Client:
         authenticate: bool = True,
         **kwargs: Any,
     ) -> Any:
+        if self._base_url != DEFAULT_BASE_URL:
+            raise HaboTribe2Error("Unsupported HABO server. Re-add the integration using the official endpoint.")
         if authenticate and self._token is None:
             await self.async_login()
 
@@ -369,81 +369,38 @@ class HaboTribe2Client:
 
         url = f"{self._base_url}{path}"
         try:
-            response = await self._client.request(method, url, headers=headers, **kwargs)
-        except httpx.TimeoutException as err:
-            raise HaboTribe2Error("Connection to HABO cloud timed out") from err
-        except httpx.ConnectError as err:
-            raise HaboTribe2Error("Unable to connect to HABO cloud") from err
-        except httpx.HTTPError as err:
-            raise HaboTribe2Error(f"HABO cloud request failed: {err}") from err
-
-        if response.status_code in (401, 403):
-            if authenticate and self._token is not None:
-                self._token = None
-            api_code, api_error = _extract_api_error(response)
-            raise AuthenticationError(
-                _format_api_error("Authentication failed", response, api_code, api_error),
-                status_code=response.status_code,
-                api_code=api_code,
-                api_error=api_error,
-            )
-        if not authenticate and path == "/account/login" and response.status_code >= 400:
-            api_code, api_error = _extract_api_error(response)
-            raise AuthenticationError(
-                _format_api_error("Login failed", response, api_code, api_error),
-                status_code=response.status_code,
-                api_code=api_code,
-                api_error=api_error,
-            )
+            async with self._client.request(
+                method, url, headers=headers, allow_redirects=False, **kwargs
+            ) as response:
+                status = response.status
+                body = await response.read()
+        except TimeoutError:
+            raise HaboTribe2Error("Connection to HABO cloud timed out") from None
+        except aiohttp.ClientError:
+            raise HaboTribe2Error("Unable to connect to HABO cloud") from None
 
         try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as err:
-            api_code, api_error = _extract_api_error(response)
-            exception_class = LockBusyError if api_code == 305 or api_error == "Busy" else HaboTribe2Error
-            raise exception_class(
-                _format_api_error("HABO cloud rejected the request", response, api_code, api_error),
-                status_code=response.status_code,
-                api_code=api_code,
-                api_error=api_error,
-            ) from err
+            data = json.loads(body) if body else None
+        except (ValueError, UnicodeError):
+            if 200 <= status < 300:
+                raise ApiSchemaError("HABO cloud returned a non-JSON response") from None
+            data = None
 
-        if not response.content:
-            return None
+        if status in (401, 403) or (not authenticate and status >= 400):
+            self._token = None
+            raise AuthenticationError("HABO authentication failed", status_code=status)
+        if not 200 <= status < 300:
+            code, busy = _command_error_details(data)
+            error_type = LockBusyError if busy else HaboTribe2Error
+            raise error_type(f"HABO cloud returned HTTP {status}", status_code=status, api_code=code)
 
-        try:
-            data = response.json()
-        except ValueError as err:
-            raise ApiSchemaError("HABO cloud returned a non-JSON response") from err
-
-        _LOGGER.debug("HABO Tribe2 %s %s returned HTTP %s", method, path, response.status_code)
-        self._capture_json_response(method, path, response.status_code, kwargs, data)
+        if self._enable_response_logging:
+            self._response_log.append({
+                "timestamp": datetime.now(UTC).isoformat(),
+                "method": method,
+                "status_code": status,
+            })
         return data
-
-    def _capture_json_response(
-        self,
-        method: str,
-        path: str,
-        status_code: int,
-        request_kwargs: dict[str, Any],
-        data: Any,
-    ) -> None:
-        """Keep recent JSON responses when troubleshooting capture is enabled."""
-
-        if not self._enable_response_logging:
-            return
-
-        entry: dict[str, Any] = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "method": method,
-            "path": path,
-            "status_code": status_code,
-            "response": _redact_response_log_data(data),
-        }
-        params = request_kwargs.get("params")
-        if params is not None:
-            entry["params"] = _redact_response_log_data(params)
-        self._response_log.append(entry)
 
 
 def _parse_lock_list(data: Any) -> list[LockState]:
@@ -458,21 +415,6 @@ def _parse_lock_list(data: Any) -> list[LockState]:
         raise ApiSchemaError("Doorlocks response does not contain a lock list")
 
     return [_parse_lock_state(lock) for lock in raw_locks if isinstance(lock, dict)]
-
-
-def _redact_response_log_data(data: Any) -> Any:
-    """Return a copy of JSON-like data with known secret fields redacted."""
-
-    if isinstance(data, dict):
-        return {
-            key: "**REDACTED**"
-            if str(key).lower() in RESPONSE_LOG_REDACT_KEYS
-            else _redact_response_log_data(value)
-            for key, value in data.items()
-        }
-    if isinstance(data, list):
-        return [_redact_response_log_data(item) for item in data]
-    return deepcopy(data)
 
 
 def _parse_gateway_map(data: Any) -> dict[str, GatewayState]:
@@ -633,55 +575,20 @@ def _raise_if_command_failed(data: Any) -> None:
         return
 
     if isinstance(data, dict):
-        api_code = _coerce_raw_int(data.get("code"))
-        api_error = data.get("error")
-        if not isinstance(api_error, str):
-            api_error = data.get("message")
-        if api_code is None and api_error is None:
+        if all(data.get(key) is None for key in ("code", "error", "message")):
             return
+        code, busy = _command_error_details(data)
+        error_type = LockBusyError if busy else CommandError
+        raise error_type("HABO command failed", api_code=code)
 
-        exception_class = LockBusyError if api_code == 305 or api_error == "Busy" else CommandError
-        raise exception_class(
-            _format_api_error("HABO command failed", None, api_code, api_error),
-            api_code=api_code,
-            api_error=api_error,
-        )
-
-    raise ApiSchemaError(f"HABO command returned an unexpected response: {data!r}")
+    raise ApiSchemaError("HABO command returned an unexpected response")
 
 
-def _extract_api_error(response: httpx.Response) -> tuple[int | None, str | None]:
-    try:
-        data = response.json()
-    except ValueError:
-        return None, None
-
+def _command_error_details(data: Any) -> tuple[int | None, bool]:
     if not isinstance(data, dict):
-        return None, None
-
-    api_code = _coerce_raw_int(data.get("code"))
-    api_error = data.get("error")
-    if not isinstance(api_error, str):
-        api_error = data.get("message")
-    if not isinstance(api_error, str):
-        api_error = None
-    return api_code, api_error
-
-
-def _format_api_error(
-    fallback: str,
-    response: httpx.Response | None,
-    api_code: int | None,
-    api_error: str | None,
-) -> str:
-    details: list[str] = []
-    if response is not None:
-        details.append(f"HTTP {response.status_code}")
-    if api_code is not None:
-        details.append(f"code {api_code}")
-    if api_error:
-        details.append(api_error)
-    return f"{fallback}: {', '.join(details)}" if details else fallback
+        return None, False
+    code = _coerce_raw_int(data.get("code"))
+    return code, code == 305 or data.get("error") == "Busy" or data.get("message") == "Busy"
 
 
 def _parse_lock_state(data: dict[str, Any]) -> LockState:

@@ -12,6 +12,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .api import (
+    DEFAULT_BASE_URL,
     ApiSchemaError,
     AuthenticationError,
     HaboTribe2Client,
@@ -25,7 +26,6 @@ from .const import (
     CONF_GATEWAY_ID,
     CONF_LOCK_ADDR,
     CONF_LOCK_NAME,
-    DEFAULT_BASE_URL,
     DOMAIN,
 )
 
@@ -33,7 +33,7 @@ from .const import (
 class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for HABO Tribe2 Smart Lock."""
 
-    VERSION = 1
+    VERSION = 2
     _user_input: dict[str, Any]
     _locks: list[LockState]
     _reauth_entry: config_entries.ConfigEntry | None
@@ -48,7 +48,7 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             client = HaboTribe2Client(
-                base_url=user_input[CONF_BASE_URL],
+                base_url=DEFAULT_BASE_URL,
                 username=user_input[CONF_USERNAME],
                 password=user_input[CONF_PASSWORD],
             )
@@ -62,7 +62,7 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except HaboTribe2Error:
                 errors["base"] = "cannot_connect"
             else:
-                self._user_input = user_input
+                self._user_input = {**user_input, CONF_BASE_URL: DEFAULT_BASE_URL}
                 return await self.async_step_lock()
             finally:
                 await client.async_close()
@@ -71,7 +71,6 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_BASE_URL, default=DEFAULT_BASE_URL): str,
                     vol.Required(CONF_USERNAME): str,
                     vol.Required(CONF_PASSWORD): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
@@ -114,7 +113,9 @@ class HaboTribe2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 await client.async_login()
-                await client.async_get_lock(data[CONF_DEVICE_ID])
+                await client.async_get_lock(
+                    data[CONF_DEVICE_ID], data[CONF_GATEWAY_ID], data[CONF_LOCK_ADDR]
+                )
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
             except ApiSchemaError:

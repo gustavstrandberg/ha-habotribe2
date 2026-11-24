@@ -14,7 +14,6 @@ CONF_LOCK_ADDR = "lock_addr"
 CONF_LOCK_NAME = "lock_name"
 CONF_API_RESPONSE_LOGGING = "api_response_logging"
 
-DEFAULT_BASE_URL = "https://api.habotribe.com/api/v1"
 DEFAULT_SCAN_INTERVAL_SECONDS = 60
 DEFAULT_API_RESPONSE_LOG_LIMIT = 20
 

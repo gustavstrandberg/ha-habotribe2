@@ -45,7 +45,9 @@ class HaboTribe2Coordinator(DataUpdateCoordinator[LockState]):
 
     async def _async_update_data(self) -> LockState:
         try:
-            return await self.client.async_get_lock(self.device_id)
+            return await self.client.async_get_lock(
+                self.device_id, self.gateway_id, self.lock_addr
+            )
         except AuthenticationError as err:
             raise ConfigEntryAuthFailed("HABO authentication failed") from err
         except HaboTribe2Error as err:

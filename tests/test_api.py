@@ -3,40 +3,24 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import AsyncMock
 
 
 def load_api_module():
-    """Load api.py without requiring Home Assistant or httpx to be installed."""
+    """Load api.py without requiring Home Assistant or aiohttp to be installed."""
 
-    httpx = types.ModuleType("httpx")
-
-    class HTTPError(Exception):
-        pass
-
-    class TimeoutException(HTTPError):
-        pass
-
-    class ConnectError(HTTPError):
-        pass
-
-    class HTTPStatusError(HTTPError):
-        pass
-
-    class AsyncClient:
-        def __init__(self, *args, **kwargs):
-            pass
-
-    httpx.HTTPError = HTTPError
-    httpx.TimeoutException = TimeoutException
-    httpx.ConnectError = ConnectError
-    httpx.HTTPStatusError = HTTPStatusError
-    httpx.AsyncClient = AsyncClient
-    sys.modules["httpx"] = httpx
+    try:
+        import aiohttp
+    except ModuleNotFoundError:
+        aiohttp = types.ModuleType("aiohttp")
+        aiohttp.ClientError = type("ClientError", (Exception,), {})
+        sys.modules["aiohttp"] = aiohttp
 
     path = Path(__file__).parents[1] / "custom_components/habo_tribe2/api.py"
     spec = spec_from_file_location("habo_tribe2_api_test", path)
@@ -49,14 +33,16 @@ def load_api_module():
 class FakeResponse:
     def __init__(self, data="Ok", status_code=200):
         self._data = data
-        self.status_code = status_code
-        self.content = b"{}"
+        self.status = status_code
 
-    def raise_for_status(self):
-        return None
+    async def __aenter__(self):
+        return self
 
-    def json(self):
-        return self._data
+    async def __aexit__(self, *args):
+        pass
+
+    async def read(self):
+        return json.dumps(self._data).encode()
 
 
 class FakeHttpClient:
@@ -64,7 +50,7 @@ class FakeHttpClient:
         self.requests = []
         self._responses = list(responses or [])
 
-    async def request(self, method, url, headers=None, **kwargs):
+    def request(self, method, url, headers=None, **kwargs):
         self.requests.append(
             {
                 "method": method,
@@ -310,7 +296,7 @@ class ApiParsingTest(unittest.TestCase):
     def test_lock_and_unlock_send_admin_pin(self):
         fake_client = FakeHttpClient()
         client = self.api.HaboTribe2Client(
-            base_url="https://example.test/api/v1",
+            base_url=self.api.DEFAULT_BASE_URL,
             username="user@example.test",
             password="secret",
             client=fake_client,
@@ -329,7 +315,7 @@ class ApiParsingTest(unittest.TestCase):
     def test_api_response_logging_is_disabled_by_default(self):
         fake_client = FakeHttpClient([FakeResponse({"state": "ok"})])
         client = self.api.HaboTribe2Client(
-            base_url="https://example.test/api/v1",
+            base_url=self.api.DEFAULT_BASE_URL,
             username="user@example.test",
             password="secret",
             client=fake_client,
@@ -339,7 +325,7 @@ class ApiParsingTest(unittest.TestCase):
         data = asyncio.run(client._request("GET", "/doorlocks"))
 
         self.assertEqual(data, {"state": "ok"})
-        self.assertEqual(client.recent_json_responses, [])
+        self.assertEqual(client.recent_request_metadata, [])
 
     def test_api_response_logging_keeps_latest_json_responses(self):
         fake_client = FakeHttpClient(
@@ -355,7 +341,7 @@ class ApiParsingTest(unittest.TestCase):
             ]
         )
         client = self.api.HaboTribe2Client(
-            base_url="https://example.test/api/v1",
+            base_url=self.api.DEFAULT_BASE_URL,
             username="user@example.test",
             password="secret",
             client=fake_client,
@@ -367,21 +353,43 @@ class ApiParsingTest(unittest.TestCase):
         asyncio.run(client._request("GET", "/doorlocks", params={"take": 1}))
         asyncio.run(client._request("GET", "/logs/", params={"take": 2}))
 
-        responses = client.recent_json_responses
+        responses = client.recent_request_metadata
         self.assertEqual(len(responses), 1)
         self.assertEqual(responses[0]["method"], "GET")
-        self.assertEqual(responses[0]["path"], "/logs/")
-        self.assertEqual(responses[0]["params"], {"take": 2})
         self.assertEqual(responses[0]["status_code"], 200)
-        self.assertEqual(
-            responses[0]["response"],
-            {
-                "second": True,
-                "token": "**REDACTED**",
-                "openings": [{"pin": "**REDACTED**"}],
-            },
+        self.assertEqual(set(responses[0]), {"timestamp", "method", "status_code"})
+
+    def test_lock_lookup_respects_configured_gateway_and_address(self):
+        client = self.api.HaboTribe2Client(
+            base_url=self.api.DEFAULT_BASE_URL, username="user", password="secret", client=FakeHttpClient()
         )
-        self.assertIn("timestamp", responses[0])
+        other = self.api.LockState("2", "other", 1, None, True)
+        chosen = self.api.LockState("1", "selected", 7, None, False)
+        client.async_get_locks = AsyncMock(return_value=[other, chosen])
+        self.assertIs(asyncio.run(client.async_get_lock("1", "selected", 7)), chosen)
+        self.assertIs(asyncio.run(client.async_get_lock("7", "selected", 7)), chosen)
+        with self.assertRaises(self.api.ApiSchemaError):
+            asyncio.run(client.async_get_lock("1", "selected", 8))
+
+    def test_custom_endpoint_is_rejected_before_login(self):
+        transport = FakeHttpClient()
+        client = self.api.HaboTribe2Client(
+            base_url="http://example.test", username="user", password="secret", client=transport
+        )
+        with self.assertRaises(self.api.HaboTribe2Error):
+            asyncio.run(client.async_login())
+        self.assertEqual(transport.requests, [])
+
+    def test_redirect_and_server_text_are_never_forwarded(self):
+        transport = FakeHttpClient([FakeResponse({"error": "sensitive detail"}, 307)])
+        client = self.api.HaboTribe2Client(
+            base_url=self.api.DEFAULT_BASE_URL, username="user", password="secret", client=transport
+        )
+        with self.assertRaises(self.api.HaboTribe2Error) as caught:
+            asyncio.run(client.async_login())
+        self.assertNotIn("sensitive detail", str(caught.exception))
+        self.assertIs(transport.requests[0]["kwargs"]["allow_redirects"], False)
+        self.assertEqual(len(transport.requests), 1)
 
     def test_event_logs_are_filtered_for_lock_and_gateway(self):
         lock = self.api._parse_lock_state(

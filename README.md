@@ -21,9 +21,7 @@ Implemented:
   DNS, ZigBee channel, and ZigBee PanID when the cloud provides them
 - Recent event log sensors for each lock and SmartBox, with the latest event as
   the sensor state and recent entries as readable attributes
-- Diagnostics with password, PIN, token, and username redacted
-- Optional troubleshooting capture of recent raw API JSON responses in
-  diagnostics, with known secret fields redacted
+- Diagnostics for connectivity, battery and optional request metadata
 
 Public Habo material describes the Smartbox as the bridge between the Tribe2
 lock and cloud service, so the integration stores Smartbox/device identifiers
@@ -96,17 +94,11 @@ to add. Add the integration once per lock if the account has multiple locks.
 ## Diagnostics and troubleshooting
 
 Diagnostics are available from the integration or device menu in Home Assistant.
-Downloaded diagnostics redact password, username, PIN, token, and known legacy
-secret fields.
-
-For deeper troubleshooting, open the integration options and enable **Keep
-recent API JSON responses in diagnostics**. The integration will keep the latest
-20 JSON responses in memory and include them in diagnostics under
-`recent_api_json_responses`.
-
-This capture is intended for temporary troubleshooting. It is bounded in memory,
-but normal users should leave it disabled unless they are investigating an
-unexpected cloud response or integration behavior.
+Diagnostics include connectivity and battery status. The integration options can
+also include timestamps, HTTP methods and status codes for the last 20 successful
+requests. Existing installations using a custom API address must be re-added
+using the official HABO endpoint. Review any existing voice assistant exposure
+for the operating mode selector, which can enable Passage mode.
 
 ## Implemented cloud calls
 

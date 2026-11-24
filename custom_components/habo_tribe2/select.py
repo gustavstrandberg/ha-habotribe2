@@ -8,6 +8,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import AuthenticationError, HaboTribe2Error, LockBusyError
@@ -33,6 +34,7 @@ class HaboTribe2OperatingModeSelect(HaboTribe2Entity, SelectEntity):
 
     _attr_has_entity_name = True
     _attr_translation_key = "operating_mode"
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_options = MODE_OPTIONS
 
     def __init__(self, coordinator: HaboTribe2Coordinator) -> None:
