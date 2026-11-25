@@ -52,22 +52,16 @@ possible.
 Each event log sensor shows the latest matching event as its state and exposes
 the recent matching entries as attributes.
 
-## Install with HACS
+## Install with Marketplace
 
-This integration can be installed as a HACS custom repository.
+Home Assistant 2026.11 and later include [Marketplace](https://www.home-assistant.io/integrations/marketplace/), which replaces HACS.
 
-1. Open **HACS** in Home Assistant.
-2. Choose **Custom repositories**.
-3. Add this repository URL:
-
-   ```text
-   https://github.com/gustavstrandberg/ha-habotribe2
-   ```
-
-4. Select **Integration** as the repository type.
-5. Install **HABO Tribe2 Smart Lock**.
-6. Restart Home Assistant.
-7. Add **HABO Tribe2 Smart Lock** from
+1. As an administrator, open **Settings > Marketplace**.
+2. Select **Add from link**, enter `gustavstrandberg/ha-habotribe2` under **GitHub link**, and select **Add**.
+3. If prompted for a type, select **Integration** and then **Add**.
+4. Open **HABO Tribe2 Smart Lock** and select **Install**. Confirm the version.
+5. Restart Home Assistant.
+6. Add **HABO Tribe2 Smart Lock** from
    **Settings > Devices & services > Add integration**.
 
 ## Manual install
@@ -126,8 +120,7 @@ passage: "BA=="
 
 The integration version is defined in
 `custom_components/habo_tribe2/manifest.json`. GitHub releases use matching
-version tags, for example `v0.4.13`, so HACS users can choose stable release
-versions.
+version tags so Marketplace can offer stable updates.
 
 ## License
 
